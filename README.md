@@ -2,7 +2,9 @@
 
 Compartmentalization of host behavior hooks for JS.
 
-Champions:
+**Stage**: 1
+
+**Champions**:
 
 * Bradley Farias, GoDaddy
 * Mark S. Miller, Agoric
