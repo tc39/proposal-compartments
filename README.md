@@ -2,7 +2,12 @@
 
 Compartmentalization of host behavior hooks for JS.
 
-Champions: Bradley Farias (@bmeck)
+Champions:
+
+* Bradley Farias, GoDaddy
+* Mark S. Miller, Agoric
+* Caridy Patiño, Salesforce
+* Patrick Soquet, Moddable
 
 Status: Stage 0
 
