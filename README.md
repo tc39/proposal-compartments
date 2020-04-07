@@ -107,14 +107,14 @@ type CompartmentConstructorOptions = {
   // they share a memo cache
   // order to ensures importNow never allows async value of import
   // to be accessed prior to any attached promise
-  importHook(absoluteName: FullSpecifier): Promise<StaticModuleRecord>;
-  importNowHook(absoluteName: FullSpecifier): StaticModuleRecord?;
+  importHook(fullSpec: FullSpecifier): Promise<StaticModuleRecord>;
+  importNowHook(fullSpec: FullSpecifier): StaticModuleRecord?;
 
   // copy own props after return
-  importMetaHook(absoluteName: FullSpecifier): object 
+  importMetaHook(fullSpec: FullSpecifier): object
 
   // e.g.: 'fr-FR' - Affects appropriate ECMA-402 APIs within Compartment
-  localeHook(): string; 
+  localeHook(): string;
   // This is important to be able to override for deterministic testing and such
   localTZAHook(): string;
 
