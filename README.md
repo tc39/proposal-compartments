@@ -176,6 +176,43 @@ interface Compartment {
 }
 ```
 
+## Design rationales
+
+### Boxed module namespace returned by compartment import
+
+An exported value named `then` can be statically imported, but dynamic import
+confuses the module namespace for a thenable object.
+The resolution of the promise returned by dynamic import, in this case, is the
+eventual resolution of the thenable module.
+This is unlikely to be an intended effect.
+
+Consider `thenable.js`:
+
+```js
+export function then(resolve) {
+  resolve(42);
+}
+```
+
+This might be dynamically imported by a neighboring module.
+
+```js
+import('./thenable.js').then((x) => {
+  // x will be 42 in this case, not a module namespace object with a then
+  // function.
+})
+```
+
+This is the behavior of a dynamic import today, despite it being surprising.
+
+In this proposal, the Compartment.import function differs from the
+behavior of dynamic import by returning the namespace in a box.
+
+```js
+compartment.import('./thenable.js').then(({namespace: x}) => {
+  // x will be a module namespace object with a then function.
+})
+```
 
 [csp]: https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP
 [jsdom]: https://www.npmjs.com/package/jsdom
