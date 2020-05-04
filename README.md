@@ -11,6 +11,7 @@ Compartmentalization of host behavior hooks for JS.
 * Caridy Patiño, Salesforce
 * Jean-Francois Paradis, Salesforce
 * Patrick Soquet, Moddable
+* Kris Kowal, Agoric
 
 Status: Stage 0
 
