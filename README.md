@@ -12,8 +12,6 @@ Compartmentalization of host behavior hooks for JS.
 * Jean-Francois Paradis, Salesforce
 * Patrick Soquet, Moddable
 
-Status: Stage 0
-
 ## Synopsis
 
 Provide a mechanism to generate ECMAScript code that provides compartmentalized
@@ -63,8 +61,8 @@ It seeks to do so in the following solution space:
 * keeping shared intrinsics of source texts
 * does not allow escaping existing host security mechanisms
 
-It concerns about those to other proposals such as [Realms][realms] or even host
-APIs.
+It leaves concerns about those to other proposals such as [Realms][realms] or
+even host APIs.
 
 ### Rationale
 
