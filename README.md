@@ -172,6 +172,10 @@ interface Compartment {
   async import(specifier: string): Promise<{namespace: ModuleNamespace}>;
   // Desired by TC53
   importNow(specifier: string): ModuleNamespace;
+  // Necessary to thread a module exports namespace from this compartment into
+  // the `moduleMap` Compartment constructor argument, without importing (and
+  // consequently executing) the module.
+  module(specifier: string): ModuleNamespace;
 }
 ```
 
