@@ -50,7 +50,7 @@ of purely security concerns. A large number of potential use cases lie purely in
 the ability to virtualize some host behavior.
 
 Currently, things like changing the effective time zone, locale, or limiting the
-ability to `eval` code withing a source text is not possible in JS.TC39 in the
+ability to `eval` code within a source text is not possible in JS. TC39 in the
 past has seen desires to override specific host behaviors such as [Zones][zones]
 in specific situations. This proposal seeks to provide a way to coordinate host
 behavior of such APIs in a generalized manner.
