@@ -118,7 +118,7 @@ type CompartmentConstructorOptions = {
   importNowHook(fullSpec: FullSpecifier): StaticModuleRecord?;
 
   // copy own props after return
-  importMetaHook(fullSpec: FullSpecifier): object
+  importMetaHook(fullSpec: FullSpecifier, moduleRecord: SourceTextStaticModuleRecord): object
 
   // e.g.: 'fr-FR' - Affects appropriate ECMA-402 APIs within Compartment
   localeHook(): string;
