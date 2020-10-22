@@ -108,6 +108,10 @@ type CompartmentConstructorOptions = {
   // Supplied during Module instance creation instead of option
   //   hasSourceTextAvailableHook(scriptOrModule): bool; // Used for censorship
   resolveHook(name: string, referrer: FullSpecifier): FullSpecifier
+  
+  // Exception hooks
+  // HostPromiseRejectionTracker (https://tc39.es/ecma262/#sec-host-promise-rejection-tracker)
+  promiseRejectionHook(promise: Promise, operation: 'reject' | 'handle'): void;
 
   // timing
   // importHook delegates to importNowHook FIRST,
