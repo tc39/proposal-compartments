@@ -142,9 +142,9 @@ type CompartmentConstructorOptions = {
 //                6.1.7.4 Well-Known Intrinsic Objects
 interface Compartment {
   constructor(
-    // extra bindings added to the global
+    // extra bindings added to the globalThis of the compartment
     endowments?: {
-      [globalPropertyName: string]: any
+      [globalPropertyName: string]: PropertyDescriptor
     },
     // need to figure out module attributes as it progresses
     // maps child specifier to parent specifier
