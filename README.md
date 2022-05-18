@@ -1,6 +1,6 @@
 # Compartments
 
-Compartmentalization of host behavior hooks for JS.
+Evaluators for modules.
 
 **Stage**: 1
 
@@ -13,175 +13,270 @@ Compartmentalization of host behavior hooks for JS.
 * Patrick Soquet, Moddable
 * Kris Kowal, Agoric
 
+Agoric's [SES shim][ses-shim] and Moddable's [XS][xs-compartments] are actively
+vetting this proposal as a shim and native implementation respectively (2022).
+Most activity toward advancing this proposal occurs on those projects.
+
 ## Synopsis
 
-Provide a mechanism to generate ECMAScript code that provides compartmentalized
-host behavior from other ECMAScript code.
+Provide a mechanism for evaluating modules from ECMAScript module source code
+and virtualizing module loader host behaviors.
 
-This is extracting some desired behavior from the existing [SES Proposal][ses]
-for generalized use.
+This proposal is a [SES Proposal][ses-proposal] milestone.
 
 ## Motivation
 
-ECMAScript has many environments in which it runs, and many behaviors are host
-driven. For a variety of use cases, the ability to alter the standard host
-behavior is desirable.
+Many ECMAScript module behaviors are defined by the host.
+The language needs a mechanism to allow programs running on one host to fully
+emulate or virtualize the module loader behaviors of another host.
 
-Some of these environments are build time instead of run time, such as
-bundling tool chains that override how things like import behavior. These are
-explicitly not creating an isolation of the object address space for JS and
-share the global with things using them.
+Module loader behaviors defined by hosts include:
 
-Various efforts like [JSDom][jsdom], [SES][ses], and even testing frameworks
-seek to override host behaviors within Realms. In TC39 we sometimes refer to
-this as the ability to virtualize behavior.
+* resolving a module import specifier to a full specifier,
+* locating the source for a full module specifier,
+* canonicalizing module specifiers that refer to the same module instance,
+* populating the `import.meta` object.
 
-Currently there is no standard way of virtualizing all behavior, nor of
-compartmentalizing behaviors to specific source text. By introducing a means to
-virtualize behaviors for source texts a variety of workflows are able to be
-created without relying on host specific APIs. Existing method often replace
-host driven APIs such as `Date` in various ways such as detached
-`<iframes>`, using [CSP][csp], [Node.js's `vm.createContext`][vm-context],
-XS's [Compartments implementation][xs-compartments], etc.
+For example, on the web we can expect a URL to be a suitable full module
+specifier, and for every module specifier to correspond to a URL.
+We can expect the canonicalized module specifier to be reflected as
+`import.meta.url`.
+In Node.js, we can also expect import specifiers that are not fully qualified
+URLs to receive special treatment.
+However, in Moddable's XS engine, we can expect a module specifier
+to resemble a UNIX file system path and not have a corresponding URL.
 
-Historically, the SES proposal sought to achieve this behavior through isolation
-as a security boundary, but the utility of changing these behaviors is outside
-of purely security concerns. A large number of potential use cases lie purely in
-the ability to virtualize some host behavior.
+We can also expect to have only one module instance per canonical module
+specifier in a given Realm, and for `import(specifier)` to be idempotent
+for the lifetime of a Realm.
+Tools that require separate module memos are therefore compelled to create 
+realms either using Node.js's [VM context][vm-context] or `<iframes>` and
+[content security policies][csp] rather than a lighter-weight mechanism,
+and consequently suffer identity discontinuties between instances from
+different realms.
 
-Currently, things like changing the effective time zone, locale, or limiting the
-ability to `eval` code withing a source text is not possible in JS.TC39 in the
-past has seen desires to override specific host behaviors such as [Zones][zones]
-in specific situations. This proposal seeks to provide a way to coordinate host
-behavior of such APIs in a generalized manner.
+Tools that will benefit from the ability to have multiple module graphs
+in a single realm include:
 
-It seeks to do so in the following solution space:
+* bundlers ([Browserify][browserify], [WebPack][webpack], [Parcel][parcel],
+  &c), virtualize loading but not evaluation of module graphs and emulate other
+  host environments, like a Node.js program emulating a web browser.
+* import mappers ([import-map][import-map]) like bundlers need to be able to
+  collect transitive dependencies according to ECMAScript language and specific
+  host behaviors.
+  A ECMAScript native module loader interface would expedite evolution of import map
+  runtimes in JavaScript.
+* hot module replacement (HMR) systems (WebPack, SnowPack, &c), which need the
+  ability to instantiate new module graphs when dependencies change and the
+  ability to bequeath subgraphs to new graphs.
+  * Node.js [defers][node-hmr] to ECMAScript to provide a module loader
+    interface to aid HMR.
+* persistent testing apparatuses ([Jest][jest]), because a persistent service
+  reinstantiates whole module graphs to reconstruct tests and test subjects.
+  * Jest currently resorts to exploiting Node.js's [vm][vm-context] module to
+    instantiate separate realms and attempts ([and
+    fails][jest-ses-interaction]) to provide the illusion of a single realm by
+    patching client realms with some of the intrinsics of the host realm.
+* emulators ([JSDom][jsdom]) in which the emulated artifact may need a separate
+  module memo from the surrounding realm.
+* sub-realm sandboxes ([SES][ses] and [LavaMoat][lava-moat]) that virtualize
+  evaluating guest modules and limit access to globals and built-in modules.
+  This proposal prepares for the SES proposal to introduce `lockdown`, which
+  isolates all evaluators, including `eval`, `Function`, and this `Compartment`
+  module evaluator. That proposal will introduce the concern of per-compartment
+  globals and hardened shared intrinsics.
 
-* without requiring separating the address space
-* without requiring an asynchronous messaging system
-* keeping shared intrinsics of source texts
-* does not allow escaping existing host security mechanisms
+Defining a module loader in the language also improves the language's ability
+to evolve.
+For example, a module loader interface that accounts for linking third-party
+modules that are not JavaScript facilitates easier experimentation with linkage
+against languages like WASM.
+For another, a module loader interface allows for user space experimentation
+with the notion of [import maps][import-map].
 
-It leaves concerns about those to other proposals such as [Realms][realms] or
-even host APIs.
+Defining a module loader in the language also provides valuable insight to the
+design of every language feature that touches upon modules, and every new
+module system feature adds uncertainty to the eventual inclusion of a module
+loader to the language.
 
-### Rationale
+One such insight is that module blocks will benefit from the notion of a module
+descriptor as defined by this proposal. Module blocks roughly correspond to
+compiled sources and are consequently not coupled to a particular host environment.
+A module descriptor is necessary to carry properties of a module not captured
+in the source, like the module referrer specifier and how to populate `import.meta`.
 
-There are several ways in which these behaviors could be overriden.
-
-* They could only be allowed to be changed in a manner that is only virtualized
-  to a newly allocated global scope.
-* They could be done via API virtualization at the global scope level.
-* They could be changed on a source text level to allow shared references
-  without identity discontinuity.
-
-The status quo is API virtualization at the global scope level, but not all
-behavior is virtualizable doing so; notably, direct eval, `import.meta`, and
-`import`.
-
-There are ways to virtualize most other APIS
+Additionally, having a module loader interface is a prerequisite for shimming built-in
+modules.
 
 ### Sketch
 
-This is a rough sketch of potential APIs.
+This is a rough sketch of potential interfaces.
 
 ```ts
-// Shared space by Realm
-type FullSpecifier = string;
-type ModuleNamespace = object;
-// Used to create a Reusable Instance factory for Module Records
-// exotic
-interface StaticModuleRecord {
-  // intend to add reflection of import/export bindings
+interface ModuleExportsNamespace {}
 
-  // needs to allow duplicates
-  staticImports(): {specifier: string, exportNames}[];
-}
-interface SourceTextStaticModuleRecord extends StaticModuleRecord {
-  // no coerce
-  constructor(source: string);
-}
-type CompartmentConstructorOptions = {
-  // JF has a better way for:
-  //   randomHook(): number; // Use for Math.random()
-  //   nowHook(): number; // Use for both Date.now() and new Date(),
-  // Supplied during Module instance creation instead of option
-  //   hasSourceTextAvailableHook(scriptOrModule): bool; // Used for censorship
-  resolveHook(name: string, referrer: FullSpecifier): FullSpecifier
+// Module instances have a module environment record, an exotic object
+// that reflects every name in the lexical scope of the module.
+// The environment record does not contain a property for any names that are
+// imported and reexported without a lexical binding.
+// An `import name as alias` binding will have a property with the lexically bound alias. 
+// An `export name as alias` binding will have a property with the lexically bound name,
+// whereas the module exports namespace will have a property with the alias.
+interface ModuleEnvironmentRecord {}
 
-  // timing
-  // importHook delegates to importNowHook FIRST,
-  // they share a memo cache
-  // order to ensures importNow never allows async value of import
-  // to be accessed prior to any attached promise
-  importHook(fullSpec: FullSpecifier): Promise<StaticModuleRecord>;
-  importNowHook(fullSpec: FullSpecifier): StaticModuleRecord?;
+// Bindings reflect the `import` and `export` statements of a module.
+type Binding =
+  { import: '*' | string, as?: string, from: string } |
+  { export: '*' | string, as?: string, from?: string };
 
-  // copy own props after return
-  importMetaHook(fullSpec: FullSpecifier): object
-
-  // e.g.: 'fr-FR' - Affects appropriate ECMA-402 APIs within Compartment
-  localeHook(): string;
-  // This is important to be able to override for deterministic testing and such
-  localTZAHook(): string;
-
-  // determines if the fn is acting as an "eval" function
-  isDirectEvalHook(evalFunctionRef: any): boolean;
-
-  // prep for trusted types non-string
-  canCompileHook(source: any, {
-    evaluator: functionRef, // can be a value from isDirectEvalHook
-    isDirect?: boolean
-  }): boolean; // need to allow mimicing CSP including nonces
+// Compartments support ECMAScript modules and linkage to other kinds of modules,
+// notably allowing for JSON or WASM.
+// These must provide an initializer function and may have bindings.
+// The bindings correspond to the equivalent `import` and `export` declarations
+// of an ECMAScript module.
+type ThirdPartyStaticModuleRecord = {
+  bindings?: Array<Binding>;
+  initialize(environment: ModuleEnvironmentRecord, meta: Object);
 };
-// Exposed on global object
-// new Constructor per Compartment
-//
-// CreateRealm needs to be refactored to take params
-//  - intrinsics: an intrinsics record from
-//                6.1.7.4 Well-Known Intrinsic Objects
+
+// Static module records are an opaque token representing the compilation
+// of a module that can be reused across multiple compartments.
+interface StaticModuleRecord {
+  // Static module records can be constructed from source.
+  // XS allows third-party module records and source descriptors to
+  // be precompiled as well.
+  constructor(source: string | { source: string } | ThirdPartyStaticModuleRecord);
+
+  // Static module records reflect their bindings for information only.
+  // Compartments use internal slots for the compiled code and bindings.
+  bindings: Array<Binding>;
+}
+
+// A ModuleDescriptor captures a static module record and per-compartment metadata.
+type ModuleDescriptor = (
+  // Using a string for a module descriptor indicates a static module record
+  // should be inherited from the parent compartment, but not the parent
+  // compartment's instance.
+  string
+  // As a shorthand for constructing a StaticModuleRecord,
+  // a module descriptor can provide source.
+  | {
+    source: string,
+  }
+  // A static module record descriptor produces a unique instance
+  // of a module in a compartment.
+  | {
+    record: StaticModuleRecord | ThirdPartyStaticModuleRecord,
+  }
+  // To refer to a module instance in another compartment, we need either to //
+  have a module descriptor that can refer to it, or have a `module` // method
+  and use module exports namespaces as opaque tokens // to refer to modules in
+  foreign compartments.
+  | {
+    compartment: Compartment,
+    foreignSpecifier: string,
+  }
+  | {
+    namespace: ModuleExportsNamespace,
+  }
+) & {
+  // An optional alias.
+  // For example, in a Node.js package compartment, '.' may imply a memo entry
+  // for './index.js'.
+  // TODO this design does not yet account for the possibility of multiple
+  // aliases, which have not been necessary for a faithful imitation of Node.js.
+  specifier?: string,
+
+  // Properties to copy to the `import.meta` of the resulting module instance.
+  meta?: Object,
+};
+
+type CompartmentConstructorOptions = {
+
+  // The compartment uses the resolveHook to synchronously elevate
+  // an import specifier (as it appears in the source of a StaticModuleRecord
+  // or bindings array of a third-party StaticModuleRecord), to
+  // the corresponding full specifier, given the full specifier of the
+  // referring (containing) module.
+  // The full specifier is the memo key for the module.
+  // TODO This proposal does not yet account for import assertions,
+  // which evidence shows are actually import type specifiers as they were
+  // originally designed and may need to also participate in the memo key.
+  resolveHook: (importSpecifier: string, referrerSpecifier: string) => string,
+
+  // The compartment's load and import methods may require to load or initialize
+  // additional modules.
+  // If the compartment does not have the corresponding module on hand,
+  // it will first consult the moduleMap for a descriptor of the needed module.
+  moduleMap?: Record<string, ModuleDescriptor>,
+
+  // If the moduleMap does not contain a descriptor for a necessary module,
+  // it will then consult the moduleMapHook.
+  // The moduleMapHook is necessary for matching computed specifiers,
+  // like specifiers that match a prefix and have a corresponding
+  // module descriptor.
+  // The moduleMap and moduleMapHook are both synchronous.
+  moduleMapHook?: (fullSpecifier: string) => ModuleDescriptor?,
+
+  // If loading or importing a module misses the compartment's memo, the
+  // moduleMap, and the moduleMapHook returns undefined, the compartment
+  // calls the asynchronous loadHook.
+  // Note: This name differs from the implementation of SES shim and a 
+  // prior revision of this proposal, where it is currently called importHook.
+  loadHook(fullSpecifier: string): Promise<ModuleDescriptor?>
+
+  // TC53: Moddable implements a loadNowHook, which was necessary
+  // for builds that omit promise machinery,
+  // TODO but may no longer be necessary
+  // given the existence of a synchronous `moduleMapHook` that
+  // can return the full breadth of possible module descriptora.
+  loadNowHook(fullSpec: FullSpecifier): ModuleDescriptor?;
+};
+
 interface Compartment {
-  constructor(
-    // extra bindings added to the global
-    endowments?: {
-      [globalPropertyName: string]: any
-    },
-    // need to figure out module attributes as it progresses
-    // maps child specifier to parent specifier
-    moduleMap?: {[key: FullSpecifier]: FullSpecifier | ModuleNamespace},
-    // including hooks like isDirectEvalHook
-    options?: CompartmentConstructorOptions
-  ): Compartment // an exotic compartment object
+  // Note: This differs from the implementations of SES shim and Moddable's XS,
+  // which accept two arguments before the options bag.
+  constructor(options?: CompartmentConstructorOptions): Compartment;
 
-  // access this compartment's global object, getter
-  globalThis: object;
+  // load causes a compartment to load module descriptors for the
+  // transitive dependencies of a specified module into its
+  // memo, but does not initialize any modules.
+  // The load function is useful for tools like bundlers and importmap
+  // generators that load a module graph in an emulated host environment
+  // but cannot and should not emulate evaluation.
+  async load(fullSpecifier: string): Promise<void>
 
-  // do an eval in this compartment
-  // default is strict indirect eval
-  evaluate(
-    // trusted types prep means use of `any`
-    src: any,
-    // FUTURE:
-    //   for other eval goals like Module, need to discuss import()/eval() to
-    //   get other Goals vs an option
-    // options?: object
-  ): any;
+  // import induces the asynchronous load phase and then initializes
+  // the given module and any of its transitive dependencies that
+  // have not already begun initialization.
+  async import(fullSpecifier: string): Promise<ModuleExportsNamespace>;
 
-  // Return signature differs to allow avoiding then() exports
-  // Used to ensure ability to be compatible with static import
-  async import(specifier: string): Promise<{namespace: ModuleNamespace}>;
-  // Desired by TC53
-  importNow(specifier: string): ModuleNamespace;
   // Necessary to thread a module exports namespace from this compartment into
   // the `moduleMap` Compartment constructor argument, without importing (and
   // consequently executing) the module.
   module(specifier: string): ModuleNamespace;
+
+  // TC53: some embedded systems hosts exclude promises and so require these
+  // synchronous variants of import and load.
+  // On hosts where these functions cannot succeed synchronously,
+  // they must throw an error without the side effect of initializing any
+  // additional modules.
+  // For modules that have a top-level await, these would return
+  // after the module first awaits but not after any subsequent promise queue
+  // job.
+
+  // If a host supports both importNow and import, they must share
+  // a memo of full specifiers to promises for the module exports namespace.
+  // importNow and loadNow followed by import or load must not accidentally
+  // reinitialize the underlying module or produce different namespaces.
+
+  importNow(fullSpecifier: string): ModuleExportsNamespace;
+
+  loadNow(fullSpecifier: string): void;
 }
 ```
 
-## Design rationales
-
-### Boxed module namespace returned by compartment import
+### Design Rationales
 
 An exported value named `then` can be statically imported, but dynamic import
 confuses the module namespace for a thenable object.
@@ -208,19 +303,18 @@ import('./thenable.js').then((x) => {
 
 This is the behavior of a dynamic import today, despite it being surprising.
 
-In this proposal, the Compartment.import function differs from the
-behavior of dynamic import by returning the namespace in a box.
+We have chosen to embrace this hazard since it would be worse to have
+dynamic import and compartment import behave differently.
 
-```js
-compartment.import('./thenable.js').then(({namespace: x}) => {
-  // x will be a module namespace object with a then function.
-})
-```
-
-[csp]: https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP
+[browserify]: https://browserify.org/
+[import-map]: https://github.com/WICG/import-maps
+[jest-ses-interaction]: https://github.com/facebook/jest/issues/11952
 [jsdom]: https://www.npmjs.com/package/jsdom
-[realms]: https://github.com/tc39/proposal-realms
-[ses]: https://github.com/tc39/proposal-ses
-[vm-context]: https://nodejs.org/api/vm.html#vm_vm_createcontext_contextobject_options
+[lava-moat]: https://github.com/LavaMoat/LavaMoat
+[node-hmr]: https://github.com/nodejs/node/issues/40594
+[parcel]: https://parceljs.org/
+[ses-proposal]: https://github.com/tc39/proposal-ses
+[ses-shim]: https://github.com/endojs/endo/tree/master/packages/ses
+[webpack]: https://webpack.js.org/
 [xs-compartments]: https://blog.moddable.com/blog/secureprivate/
-[zones]: https://github.com/domenic/zones/tree/eb65c6d43b452a877c24561cd64c6901e790ecf0
+[vm-context]: https://nodejs.org/api/vm.html#vm_vm_createcontext_contextobject_options
