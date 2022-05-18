@@ -135,8 +135,16 @@ type Binding =
 // The bindings correspond to the equivalent `import` and `export` declarations
 // of an ECMAScript module.
 type ThirdPartyStaticModuleRecord = {
-  bindings?: Array<Binding>;
-  initialize(environment: ModuleEnvironmentRecord, meta: Object);
+  bindings?: Array<Binding>,
+  // Initializes the module if it is imported.
+  // Initialize may return a promise, indicating that the module uses
+  // the equivalent of top-level-await.
+  initialize(environment: ModuleEnvironmentRecord, meta: Object),
+  // TODO decide upon a positive or negative form of `usesMeta` or `noMeta`.
+  // Avoid calling `importMetaHook` for this module since it won't use the
+  // `meta` property. 
+  noMeta?: boolean,
+  // TODO consider whether to reflect top-level-await statically.
 };
 
 // Static module records are an opaque token representing the compilation
@@ -223,14 +231,27 @@ type CompartmentConstructorOptions = {
   // calls the asynchronous loadHook.
   // Note: This name differs from the implementation of SES shim and a 
   // prior revision of this proposal, where it is currently called importHook.
-  loadHook(fullSpecifier: string): Promise<ModuleDescriptor?>
+  loadHook?: (fullSpecifier: string) => Promise<ModuleDescriptor?>
 
   // TC53: Moddable implements a loadNowHook, which was necessary
   // for builds that omit promise machinery,
   // TODO but may no longer be necessary
   // given the existence of a synchronous `moduleMapHook` that
   // can return the full breadth of possible module descriptora.
-  loadNowHook(fullSpec: FullSpecifier): ModuleDescriptor?;
+  loadNowHook?: (fullSpec: FullSpecifier) => ModuleDescriptor?;
+
+  // A ModuleDescriptor can have a `meta` property.
+  // The compartment assigns these properties over the true `import.meta`
+  // object for the module instance.
+  // That object in turn has a null prototype.
+  // However some properties of `meta` are too expensive for a host
+  // to instantiate for every module, like Node.js's `import.meta.resolve`,
+  // which can be avoided for modules that never utter `import.meta`
+  // in their sources.
+  // This hook gets called for any module that utters `import.meta`,
+  // so some work can be deferred until just before the compartment
+  // initializes the module.
+  importMetaHook?: (meta: Object) => void,
 };
 
 interface Compartment {
