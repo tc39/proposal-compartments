@@ -176,10 +176,10 @@ type ModuleDescriptor = (
   | {
     record: StaticModuleRecord | ThirdPartyStaticModuleRecord,
   }
-  // To refer to a module instance in another compartment, we need either to //
-  have a module descriptor that can refer to it, or have a `module` // method
-  and use module exports namespaces as opaque tokens // to refer to modules in
-  foreign compartments.
+  // To refer to a module instance in another compartment, we need either to
+  // have a module descriptor that can refer to it, or have a `module` method and
+  // use module exports namespaces as opaque tokens to refer to modules in foreign
+  // compartments.
   | {
     compartment: Compartment,
     foreignSpecifier: string,
