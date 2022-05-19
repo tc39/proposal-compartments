@@ -161,45 +161,75 @@ interface StaticModuleRecord {
 }
 
 // A ModuleDescriptor captures a static module record and per-compartment metadata.
-type ModuleDescriptor = (
+type ModuleDescriptor = 
   // Using a string for a module descriptor indicates a static module record
   // should be inherited from the parent compartment, but not the parent
   // compartment's instance.
   string
-  // As a shorthand for constructing a StaticModuleRecord,
-  // a module descriptor can provide source.
-  | {
-    source: string,
-  }
   // A static module record descriptor produces a unique instance
   // of a module in a compartment.
   | {
     record: StaticModuleRecord | ThirdPartyStaticModuleRecord,
+
+    // An optional alias.
+    // For example, in a Node.js package compartment, '.' may imply a memo entry
+    // for './index.js'.
+    // TODO this design does not yet account for the possibility of multiple
+    // aliases, which have not been necessary for a faithful imitation of Node.js.
+    // That might be better accounted for with {compartment?, specifier}
+    // module descriptors, below.
+    specifier?: string,
+
+    // Properties to copy to the `import.meta` of the resulting module instance.
+    meta?: Object,
+  }
+  // As a shorthand for constructing a StaticModuleRecord,
+  // a module descriptor can provide source.
+  | {
+    source: string,
+    specifier?: string,
+    meta?: Object,
   }
   // To refer to a module instance in another compartment, we need either to
   // have a module descriptor that can refer to it, or have a `module` method and
   // use module exports namespaces as opaque tokens to refer to modules in foreign
   // compartments.
   | {
+    // A compartment instance.
+    // We do not preclude the possibility that compartment is the same compartment,
+    // as that is possible to achieve in moduleMapHook and loadHook, albeit not
+    // in moduleMap.
+    // TODO Idea: it may be sufficient to make this compartment instance optional,
+    // defaulting to the current instance, in order to implement arbitrary
+    // numbers of aliases to a single module instance, from one or many other
+    // compartments, which would obviate the need for `Compartmnt.prototype.module`.
     compartment: Compartment,
-    foreignSpecifier: string,
+    // The full specifier of the corresponding module instance in the other compartment.
+    specifier: string,
   }
   | {
     namespace: ModuleExportsNamespace,
-  }
-) & {
-  // An optional alias.
-  // For example, in a Node.js package compartment, '.' may imply a memo entry
-  // for './index.js'.
-  // TODO this design does not yet account for the possibility of multiple
-  // aliases, which have not been necessary for a faithful imitation of Node.js.
-  specifier?: string,
-
-  // Properties to copy to the `import.meta` of the resulting module instance.
-  meta?: Object,
-};
+  };
 
 type CompartmentConstructorOptions = {
+  // inherit, when true, indicates that this compartment shares the globals, global
+  // contour, and evaluators of the surrounding compartment.
+  // This would interact with the SES `lockdown` function: after lockdown,
+  // a true would be incoherent and throw an exception.
+  // When false, the compartment's globalThis would be populated only
+  // with a subset of the language's intrinsics and the compartment's
+  // specialized evaluators.
+  // For this proposal to be fully specified, we would need to realize
+  // the concept of shared intrinsics in anticipation of Lockdown.
+  // In order for the module-loader Compartment to be useful for a
+  // Lockdown-Compartment shim, we must disallow vendors from including
+  // any shared intrinsics beyond those specified by the module loader proposal.
+  inherit: boolean,
+
+  // Globals to copy onto this compartment's unique globalThis.
+  // Constructor options with globals and inherit: true would be incoherent and
+  // effect an exception.
+  globals: Object,
 
   // The compartment uses the resolveHook to synchronously elevate
   // an import specifier (as it appears in the source of a StaticModuleRecord
@@ -257,7 +287,39 @@ type CompartmentConstructorOptions = {
 interface Compartment {
   // Note: This differs from the implementations of SES shim and Moddable's XS,
   // which accept two arguments before the options bag.
+  // TODO Settle #5 before commiting to a single-options bag constructor.
+  // We can effect a migration by initially requiring a symbol on the first
+  // argument options bag, like `[Compartment.options]: true`, in order
+  // afford new code that is forward compatible while still supporting
+  // legacy argument patterns.
   constructor(options?: CompartmentConstructorOptions): Compartment;
+
+  // Accessor for this compartment's globals.
+  // If inherit is true, globalThis is object identical to the incubating
+  // compartment's globalThis.
+  // If inherit is false, globalThis is a unique, ordinary object
+  // intrinsic to this compartment.
+  // The globalThis object initially has only "shared intrinsics",
+  // followed by compartment-specific "eval", "Function", and "Compartment",
+  // followed by any properties transferred from the "globals"
+  // constructor option with the semantics of Object.assign.
+  globalThis: Object,
+
+  // Evaluates a program program in this compartment.
+  // If the inherit compartment constructor option is false (or absent),
+  // this function is equivalent to indirect eval in the incubating
+  // compartment.
+  // If the inherit compartment constructor option is true, (or absent after
+  // lockdown!), this is equivalent to indirect eval with this compartment's
+  // own evaluator, globals, and a temporary global contour.
+  // A subsequent proposal might add options to either the compartment
+  // constructor or the evaluate method to persist the global contour
+  // between calls to evaluate, making compartments a suitable
+  // tool for a REPL, such that a const or let binding from one evaluation
+  // persists to the next.
+  // Subsequent proposals might afford other modes, like sloppy globals mode.
+  // TODO is sloppyGlobalsMode only sensible in the context of the shim?
+  evaluate(source: string): any;
 
   // load causes a compartment to load module descriptors for the
   // transitive dependencies of a specified module into its
@@ -275,6 +337,8 @@ interface Compartment {
   // Necessary to thread a module exports namespace from this compartment into
   // the `moduleMap` Compartment constructor argument, without importing (and
   // consequently executing) the module.
+  // TODO it may be possible to remove this method if module descriptors
+  // with the {specifier, compartment?} shape solve the same problem better.
   module(specifier: string): ModuleNamespace;
 
   // TC53: some embedded systems hosts exclude promises and so require these
