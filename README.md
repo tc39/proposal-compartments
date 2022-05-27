@@ -49,7 +49,7 @@ to resemble a UNIX file system path and not have a corresponding URL.
 We can also expect to have only one module instance per canonical module
 specifier in a given Realm, and for `import(specifier)` to be idempotent
 for the lifetime of a Realm.
-Tools that require separate module memos are therefore compelled to create 
+Tools that require separate module memos are therefore compelled to create
 realms either using Node.js's [VM context][vm-context] or `<iframes>` and
 [content security policies][csp] rather than a lighter-weight mechanism,
 and consequently suffer identity discontinuties between instances from
@@ -119,7 +119,7 @@ interface ModuleExportsNamespace {}
 // that reflects every name in the lexical scope of the module.
 // The environment record does not contain a property for any names that are
 // imported and reexported without a lexical binding.
-// An `import name as alias` binding will have a property with the lexically bound alias. 
+// An `import name as alias` binding will have a property with the lexically bound alias.
 // An `export name as alias` binding will have a property with the lexically bound name,
 // whereas the module exports namespace will have a property with the alias.
 interface ModuleEnvironmentRecord {}
@@ -139,12 +139,9 @@ type ThirdPartyStaticModuleRecord = {
   // Initializes the module if it is imported.
   // Initialize may return a promise, indicating that the module uses
   // the equivalent of top-level-await.
-  initialize(environment: ModuleEnvironmentRecord, meta: Object),
-  // TODO decide upon a positive or negative form of `usesMeta` or `noMeta`.
-  // Avoid calling `importMetaHook` for this module since it won't use the
-  // `meta` property. 
-  noMeta?: boolean,
-  // TODO consider whether to reflect top-level-await statically.
+  initialize(environment: ModuleEnvironmentRecord, importMeta: Object | undefined),
+  // Indicates that initialize needs to receive an importMeta.
+  needsImportMeta: boolean,
 };
 
 // Static module records are an opaque token representing the compilation
@@ -161,54 +158,131 @@ interface StaticModuleRecord {
 }
 
 // A ModuleDescriptor captures a static module record and per-compartment metadata.
-type ModuleDescriptor = 
-  // Using a string for a module descriptor indicates a static module record
-  // should be inherited from the parent compartment, but not the parent
-  // compartment's instance.
-  string
-  // A static module record descriptor produces a unique instance
-  // of a module in a compartment.
-  | {
-    record: StaticModuleRecord | ThirdPartyStaticModuleRecord,
+type ModuleDescriptor =
 
-    // An optional alias.
-    // For example, in a Node.js package compartment, '.' may imply a memo entry
-    // for './index.js'.
-    // TODO this design does not yet account for the possibility of multiple
-    // aliases, which have not been necessary for a faithful imitation of Node.js.
-    // That might be better accounted for with {compartment?, specifier}
-    // module descriptors, below.
-    specifier?: string,
-
-    // Properties to copy to the `import.meta` of the resulting module instance.
-    meta?: Object,
-  }
-  // As a shorthand for constructing a StaticModuleRecord,
-  // a module descriptor can provide source.
+  // Describes a module by its [[Module]] source text.
+  // If the compartment _loads_ the module, it will construct and memoize a
+  // static module record for the source.
+  // The static module record captures a static analysis
+  // of the `import` and `export` bindings and whether the source ever utters
+  // the keyword `import.meta`.
+  // The compartment will then asynchronously _load_ the shallow dependencies
+  // of the module and memoize the promise for the
+  // result of loading the module and its transitive dependencies.
+  // If the compartment _imports_ the module, it will generate and memoize
+  // a module instance and initialize the module.
+  // To initialize the module, the compartment will construct an `import.meta` object.
+  // If the source utters `import.meta`,
+  // * The compartment will construct an `importMeta` object with a null prototype.
+  // * If the module descriptor has an `importMeta` property, the compartment
+  //   will copy the own properties of the descriptor's `importMeta` over
+  //   the compartment's `importMeta'.
+  // * If the compartment has an `importMetaHook`, it will call
+  //   `importMetaHook(fullSpecifier, importMeta)`.
+  // The compartment will then begin initializing the module.
+  // The compartment memoizes a promise for the module exports namespace
+  // that will be fulfilled at a time already defined in 262 for dynamic import.
   | {
     source: string,
-    specifier?: string,
-    meta?: Object,
+
+    // Properties to copy to the `import.meta` of the resulting module instance,
+    // if the source mentions `import.meta`.
+    importMeta?: Object,
   }
-  // To refer to a module instance in another compartment, we need either to
-  // have a module descriptor that can refer to it, or have a `module` method and
-  // use module exports namespaces as opaque tokens to refer to modules in foreign
-  // compartments.
+
+  // Describes a module by a *reusable* record of the compiled source text.
+  // The behavior of load and import for this kind of module descriptor
+  // is identical to { source } descriptors except that the compartment
+  // will not recompile the source.
   | {
+    record: StaticModuleRecord,
+
+    // Properties to copy to the `import.meta` of the resulting module instance,
+    // if the source mentions `import.meta`.
+    importMeta?: Object,
+  }
+
+  // Describes a module by a *reusable* third-party static module record.
+  // When the compartment _loads_ the module, it will use the bindings array
+  // of the third-party static module record to discover shallow dependencies
+  // in lieu of compiling the source, and otherwise behaves identically
+  // to { source } descriptors.
+  // When the compartment _imports_ the module, it will construct a
+  // [[ModuleEnvironmentRecord]] and [[ModuleExportsNamespace]] based
+  // entirely on the bindings array of the third-party static module record.
+  // If the third-party static-module record has a true `needsImportMeta`
+  // property, the compartment will construct an `importMeta` by the
+  // same process as any { source } module.
+  // `importMeta` will otherwise be `undefined`.
+  // The compartment will then initialize the module by calling the
+  // `initialize` function of the third-party static module record,
+  // giving it the module environment record and `importMeta`.
+  // The compartment memoizes a promise for the module exports namespace
+  // that is fulfilled as already specified in 262 for dynamic import,
+  // where the behavior if the initialize function is async is analogous to
+  // top-level-await for a module compiled from source.
+  | {
+    record: ThirdPartyStaticModuleRecord,
+
+    // Properties to copy to the `import.meta` of the resulting module instance,
+    // if the `record` has a `true` `needsImportMeta` property.
+    importMeta?: Object,
+  }
+
+  // Use a static module record from the compartment in which this compartment
+  // was constructed.
+  // If the compartment _loads_ the corresponding module, the static
+  // module record will be synchronously available only if it is already
+  // in the parent compartment's synchronous memo.
+  // Otherwise, loading induces the parent compartment to load the module,
+  // but does not induce the parent compartment to load the module's transitive
+  // dependencies.
+  // This compartment then resolves the shallow dependencies according
+  // to its own resolveHook and loads the consequent transitive dependencies.
+  // If the compartment _imports_ the module, the behavior is equivalent
+  // to loading for the retrieved static module record or third-party static
+  // module record.
+  | {
+    record: string,
+
+    // Properties to copy to the `import.meta` of the resulting module instance.
+    importMeta?: Object,
+  }
+
+  // FOR SHARED MODULE INSTANCES:
+
+  // To create an alias to an existing module instance in this compartment:
+  | {
+    // A full specifier for another module in this compartment.
+    instance: string,
+  }
+
+  // To create an alias to an existing module instance given the full specifier
+  // of the module in a different compartment:
+  | {
+    instance: string,
+
     // A compartment instance.
     // We do not preclude the possibility that compartment is the same compartment,
     // as that is possible to achieve in moduleMapHook and loadHook, albeit not
     // in moduleMap.
-    // TODO Idea: it may be sufficient to make this compartment instance optional,
-    // defaulting to the current instance, in order to implement arbitrary
-    // numbers of aliases to a single module instance, from one or many other
-    // compartments, which would obviate the need for `Compartmnt.prototype.module`.
     compartment: Compartment,
-    // The full specifier of the corresponding module instance in the other compartment.
-    specifier: string,
   }
+
+  // To create an alias to an existing module instance given a module exports
+  // namespace object that can pass a brand check:
   | {
     namespace: ModuleExportsNamespace,
+  }
+
+  // If the given namespace does not pass a ModuleExportsNamespace brandcheck,
+  // the compartment will not support live bindings to the properties of that
+  // object, but will instead produce an emulation of a module exports namespace,
+  // using a frozen snapshot of the own properties of the given object.
+  // The module exports namespace for this module does not reflect any future
+  // changes to the shape of the given object.
+  | {
+    namespace: ^ModuleExportsNamespace,
   };
 
 type CompartmentConstructorOptions = {
@@ -224,6 +298,8 @@ type CompartmentConstructorOptions = {
   // In order for the module-loader Compartment to be useful for a
   // Lockdown-Compartment shim, we must disallow vendors from including
   // any shared intrinsics beyond those specified by the module loader proposal.
+  // Note: The champions do not like the name `inherit` so this will likely
+  // change in a future version.
   inherit: boolean,
 
   // Globals to copy onto this compartment's unique globalThis.
@@ -259,39 +335,28 @@ type CompartmentConstructorOptions = {
   // If loading or importing a module misses the compartment's memo, the
   // moduleMap, and the moduleMapHook returns undefined, the compartment
   // calls the asynchronous loadHook.
-  // Note: This name differs from the implementation of SES shim and a 
+  // Note: This name differs from the implementation of SES shim and a
   // prior revision of this proposal, where it is currently called importHook.
   loadHook?: (fullSpecifier: string) => Promise<ModuleDescriptor?>
 
-  // TC53: Moddable implements a loadNowHook, which was necessary
-  // for builds that omit promise machinery,
-  // TODO but may no longer be necessary
-  // given the existence of a synchronous `moduleMapHook` that
-  // can return the full breadth of possible module descriptora.
-  loadNowHook?: (fullSpec: FullSpecifier) => ModuleDescriptor?;
-
-  // A ModuleDescriptor can have a `meta` property.
+  // A ModuleDescriptor can have an `importMeta` property.
   // The compartment assigns these properties over the true `import.meta`
   // object for the module instance.
   // That object in turn has a null prototype.
-  // However some properties of `meta` are too expensive for a host
+  // However some properties of `import.meta` are too expensive for a host
   // to instantiate for every module, like Node.js's `import.meta.resolve`,
   // which can be avoided for modules that never utter `import.meta`
   // in their sources.
   // This hook gets called for any module that utters `import.meta`,
   // so some work can be deferred until just before the compartment
   // initializes the module.
-  importMetaHook?: (meta: Object) => void,
+  importMetaHook?: (fullSpecifier: string, importMeta: Object) => void,
 };
 
 interface Compartment {
-  // Note: This differs from the implementations of SES shim and Moddable's XS,
-  // which accept two arguments before the options bag.
-  // TODO Settle #5 before commiting to a single-options bag constructor.
-  // We can effect a migration by initially requiring a symbol on the first
-  // argument options bag, like `[Compartment.options]: true`, in order
-  // afford new code that is forward compatible while still supporting
-  // legacy argument patterns.
+  // Note: This single-argument form differs from earlier proposal versions,
+  // implementations of SES shim, and Moddable's XS, which accept three arguments,
+  // including a final options bag.
   constructor(options?: CompartmentConstructorOptions): Compartment;
 
   // Accessor for this compartment's globals.
@@ -333,13 +398,6 @@ interface Compartment {
   // the given module and any of its transitive dependencies that
   // have not already begun initialization.
   async import(fullSpecifier: string): Promise<ModuleExportsNamespace>;
-
-  // Necessary to thread a module exports namespace from this compartment into
-  // the `moduleMap` Compartment constructor argument, without importing (and
-  // consequently executing) the module.
-  // TODO it may be possible to remove this method if module descriptors
-  // with the {specifier, compartment?} shape solve the same problem better.
-  module(specifier: string): ModuleNamespace;
 
   // TC53: some embedded systems hosts exclude promises and so require these
   // synchronous variants of import and load.
