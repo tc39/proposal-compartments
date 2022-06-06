@@ -12,9 +12,11 @@ Evaluators for modules.
 * Jean-Francois Paradis, Salesforce
 * Patrick Soquet, Moddable
 * Kris Kowal, Agoric
+* Jack Works, Sujitech
 
-Agoric's [SES shim][ses-shim] and Moddable's [XS][xs-compartments] are actively
-vetting this proposal as a shim and native implementation respectively (2022).
+Agoric's [SES shim][ses-shim], Sujitech's [ahead-of-time-SES][AOT-SES] and 
+Moddable's [XS][xs-compartments] are actively vetting this proposal 
+as a shim and native implementation respectively (2022).
 Most activity toward advancing this proposal occurs on those projects.
 
 ## Synopsis
@@ -458,6 +460,7 @@ dynamic import and compartment import behave differently.
 [parcel]: https://parceljs.org/
 [ses-proposal]: https://github.com/tc39/proposal-ses
 [ses-shim]: https://github.com/endojs/endo/tree/master/packages/ses
+[AOT-SES]: https://github.com/DimensionDev/aot-secure-ecmascript
 [webpack]: https://webpack.js.org/
 [xs-compartments]: https://blog.moddable.com/blog/secureprivate/
 [vm-context]: https://nodejs.org/api/vm.html#vm_vm_createcontext_contextobject_options
