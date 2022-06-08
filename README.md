@@ -1,6 +1,6 @@
-# Compartments
+# Module Loader
 
-Evaluators for modules.
+Load and evaluate modules.
 
 **Stage**: 1
 
@@ -84,8 +84,8 @@ in a single realm include:
 * sub-realm sandboxes ([SES][ses] and [LavaMoat][lava-moat]) that virtualize
   evaluating guest modules and limit access to globals and built-in modules.
   This proposal prepares for the SES proposal to introduce `lockdown`, which
-  isolates all evaluators, including `eval`, `Function`, and this `Compartment`
-  module evaluator. That proposal will introduce the concern of per-compartment
+  isolates all evaluators, including `eval`, `Function`, and this `Loader`
+  module evaluator. That proposal will introduce the concern of per-loader
   globals and hardened shared intrinsics.
 
 Defining a module loader in the language also improves the language's ability
@@ -138,7 +138,7 @@ type Binding =
   { import: '*' | string, as?: string, from: string } |
   { export: '*' | string, as?: string, from?: string };
 
-// Compartments support ECMAScript modules and linkage to other kinds of modules,
+// Loaders support ECMAScript modules and linkage to other kinds of modules,
 // notably allowing for JSON or WASM.
 // These must provide an initializer function and may declare bindings for
 // imported or exported names.
@@ -149,11 +149,19 @@ type ThirdPartyStaticModuleRecord = {
   // Initializes the module if it is imported.
   // Initialize may return a promise, indicating that the module uses
   // the equivalent of top-level-await.
-  // XXX The compartment will leave that promise to dangle, so an eventual
+  // XXX The loader will leave that promise to dangle, so an eventual
   // rejection will necessarily go unhandled.
   initialize(environment: ModuleEnvironmentRecord, {
     import?: (importSpecifier: string) => Promise<ModuleExportsNamespace>,
-    importMeta?: Object
+    importMeta?: Object,
+    // TODO: If module environment record also reflects the properties of
+    // globalThis, we do not need to thread globalThis.
+    // The module environment record must not fall through to the global
+    // environment record or global contour since those capture top-level
+    // declarations from Script mode eval.
+    // If we add globalLexicals, to the proposal, they would need to be
+    // threaded through here as well, or layered on the module environment record.
+    globalThis,
   }),
   // Indicates that initialize needs to receive a dynamic import function that
   // closes over the referrer module specifier.
@@ -163,7 +171,7 @@ type ThirdPartyStaticModuleRecord = {
 };
 
 // Static module records are an opaque token representing the compilation
-// of a module that can be reused across multiple compartments.
+// of a module that can be reused across multiple loaders.
 interface StaticModuleRecord {
   // Static module records can be constructed from source.
   // XS allows third-party module records and source descriptors to
@@ -171,11 +179,11 @@ interface StaticModuleRecord {
   constructor(source: string);
 
   // Static module records reflect their bindings for information only.
-  // Compartments use internal slots for the compiled code and bindings.
+  // Loaders use internal slots for the compiled code and bindings.
   bindings: Array<Binding>;
 }
 
-// A ModuleDescriptor captures a static module record and per-compartment metadata.
+// A ModuleDescriptor captures a static module record and per-loader metadata.
 type ModuleDescriptor =
 
   // Describes a module by referring to a *reusable* record of the compiled
@@ -183,21 +191,21 @@ type ModuleDescriptor =
   // The static module record captures a static analysis
   // of the `import` and `export` bindings and whether the source ever utters
   // the keywords `import` or `import.meta`.
-  // The compartment will then asynchronously _load_ the shallow dependencies
+  // The loader will then asynchronously _load_ the shallow dependencies
   // of the module and memoize the promise for the
   // result of loading the module and its transitive dependencies.
-  // If the compartment _imports_ the module, it will generate and memoize
+  // If the loader _imports_ the module, it will generate and memoize
   // a module instance and initialize the module.
-  // To initialize the module, the compartment will construct an `import.meta` object.
+  // To initialize the module, the loader will construct an `import.meta` object.
   // If the source utters `import.meta`,
-  // * The compartment will construct an `importMeta` object with a null prototype.
-  // * If the module descriptor has an `importMeta` property, the compartment
+  // * The loader will construct an `importMeta` object with a null prototype.
+  // * If the module descriptor has an `importMeta` property, the loader
   //   will copy the own properties of the descriptor's `importMeta` over
-  //   the compartment's `importMeta' using `[[Set]]`.
-  // * If the compartment has an `importMetaHook`, it will call
+  //   the loader's `importMeta' using `[[Set]]`.
+  // * If the loader has an `importMetaHook`, it will call
   //   `importMetaHook(fullSpecifier, importMeta)`.
-  // The compartment will then begin initializing the module.
-  // The compartment memoizes a promise for the module exports namespace
+  // The loader will then begin initializing the module.
+  // The loader memoizes a promise for the module exports namespace
   // that will be fulfilled at a time already defined in 262 for dynamic import.
   | {
     record: StaticModuleRecord,
@@ -208,27 +216,27 @@ type ModuleDescriptor =
   }
 
   // Describes a module by a *reusable* third-party static module record.
-  // When the compartment _loads_ the module, it will use the bindings array
+  // When the loader _loads_ the module, it will use the bindings array
   // of the third-party static module record to discover shallow dependencies
   // in lieu of compiling the source, and otherwise behaves identically
   // to { source } descriptors.
-  // When the compartment _imports_ the module, it will construct a
+  // When the loader _imports_ the module, it will construct a
   // [[ModuleEnvironmentRecord]] and [[ModuleExportsNamespace]] based
   // entirely on the bindings array of the third-party static module record.
   // If the third-party static-module-record has a true `needsImport`, the
-  // compartment will construct an `import` that resolves
+  // loader will construct an `import` that resolves
   // the given import specifier relative to the module instance's full specifier
   // and returns a promise for the module exports namespace of the
   // imported module.
   // If the third-party static-module-record has a true `needsImportMeta`
-  // property, the compartment will construct an `importMeta` by the
+  // property, the loader will construct an `importMeta` by the
   // same process as any { source } module.
   // `importMeta` will otherwise be `undefined`.
-  // The compartment will then initialize the module by calling the
+  // The loader will then initialize the module by calling the
   // `initialize` function of the third-party static module record,
   // giving it the module environment record and an options bag containing
   // either `import` or `importMeta` if needed.
-  // The compartment memoizes a promise for the module exports namespace
+  // The loader memoizes a promise for the module exports namespace
   // that is fulfilled as already specified in 262 for dynamic import,
   // where the behavior if the initialize function is async is analogous to
   // top-level-await for a module compiled from source.
@@ -240,17 +248,17 @@ type ModuleDescriptor =
     importMeta?: Object,
   }
 
-  // Use a static module record from the compartment in which this compartment
+  // Use a static module record from the loader in which this loader
   // was constructed.
-  // If the compartment _loads_ the corresponding module, the static
+  // If the loader _loads_ the corresponding module, the static
   // module record will be synchronously available only if it is already
-  // in the parent compartment's synchronous memo.
-  // Otherwise, loading induces the parent compartment to load the module,
-  // but does not induce the parent compartment to load the module's transitive
+  // in the parent loader's synchronous memo.
+  // Otherwise, loading induces the parent loader to load the module,
+  // but does not induce the parent loader to load the module's transitive
   // dependencies.
-  // This compartment then resolves the shallow dependencies according
+  // This loader then resolves the shallow dependencies according
   // to its own resolveHook and loads the consequent transitive dependencies.
-  // If the compartment _imports_ the module, the behavior is equivalent
+  // If the loader _imports_ the module, the behavior is equivalent
   // to loading for the retrieved static module record or third-party static
   // module record.
   | {
@@ -262,21 +270,21 @@ type ModuleDescriptor =
 
   // FOR SHARED MODULE INSTANCES:
 
-  // To create an alias to an existing module instance in this compartment:
+  // To create an alias to an existing module instance in this loader:
   | {
-    // A full specifier for another module in this compartment.
+    // A full specifier for another module in this loader.
     instance: string,
   }
 
   // To create an alias to an existing module instance given the full specifier
-  // of the module in a different compartment:
+  // of the module in a different loader:
   | {
     instance: string,
 
-    // A compartment instance.
-    // We do not preclude the possibility that compartment is the same compartment,
+    // A loader instance.
+    // We do not preclude the possibility that loader is the same loader,
     // as that is possible to achieve in a `loadHook`.
-    compartment: Compartment,
+    loader: Loader,
   }
 
   // To create an alias to an existing module instance given a module exports
@@ -286,7 +294,7 @@ type ModuleDescriptor =
   }
 
   // If the given namespace does not pass a ModuleExportsNamespace brandcheck,
-  // the compartment will not support live bindings to the properties of that
+  // the loader will not support live bindings to the properties of that
   // object, but will instead produce an emulation of a module exports namespace,
   // using a frozen snapshot of the own properties of the given object.
   // The module exports namespace for this module does not reflect any future
@@ -296,23 +304,23 @@ type ModuleDescriptor =
     namespace: ^ModuleExportsNamespace,
   };
 
-type CompartmentConstructorOptions = {
-  // Every Compartment has a reference to a global environment record that in
+type LoaderConstructorOptions = {
+  // Every Loader has a reference to a global environment record that in
   // turn contains a new globalThis object, global contour, and three
-  // specialized intrinsic evaluators: eval, Function, and Compartment instances.
+  // specialized intrinsic evaluators: eval, Function, and Loader instances.
   // The new globalThis object contains a subset of the JavaScript language
   // intrinsics (to be defined in this proposal) and other globals must be
-  // "endowed" to the compartment explicitly with the `globals` option.
-  // All of these evaluators close over the compartment's global environment
+  // "endowed" to the loader explicitly with the `globals` option.
+  // All of these evaluators close over the loader's global environment
   // record such that they evaluate code in that global environment.
-  // When borrowGlobals is false, a the new Compartment gets a new global
+  // When borrowGlobals is false, a the new Loader gets a new global
   // environment record.
-  // When borrowGlobals is true, the new Compartment will have the
-  // same global environment record as associated with the Compartment
-  // constructor used to construct the compartment.
-  // To borrow the globals of an arbitrary compartment, use that compartment's
-  // Compartment constructor, like
-  // new compartment.globalThis.Compartment({ borrowGlobals: true }).
+  // When borrowGlobals is true, the new Loader will have the
+  // same global environment record as associated with the Loader
+  // constructor used to construct the loader.
+  // To borrow the globals of an arbitrary loader, use that loader's
+  // Loader constructor, like
+  // new loader.globalThis.Loader({ borrowGlobals: true }).
   borrowGlobals: boolean,
 
   // Globals to copy onto this compartment's unique globalThis.
@@ -320,7 +328,7 @@ type CompartmentConstructorOptions = {
   // effect an exception.
   globals: Object,
 
-  // The compartment uses the resolveHook to synchronously elevate
+  // The loader uses the resolveHook to synchronously elevate
   // an import specifier (as it appears in the source of a StaticModuleRecord
   // or bindings array of a third-party StaticModuleRecord), to
   // the corresponding full specifier, given the full specifier of the
@@ -331,20 +339,20 @@ type CompartmentConstructorOptions = {
   // originally designed and may need to also participate in the memo key.
   resolveHook: (importSpecifier: string, referrerSpecifier: string) => string,
 
-  // The compartment's load and import methods may need to load or initialize
+  // The loader's load and import methods may need to load or initialize
   // additional modules.
-  // If the compartment does not have a module on hand,
+  // If the loader does not have a module on hand,
   // it will first consult the `modules` object for a descriptor of the needed module.
   modules?: Record<string, ModuleDescriptor>,
 
-  // If loading or importing a module misses the compartment's memo and the
-  // `modules` table, the compartment calls the asynchronous `loadHook`.
+  // If loading or importing a module misses the loader's memo and the
+  // `modules` table, the loader calls the asynchronous `loadHook`.
   // Note: This name differs from the implementation of SES shim and a
   // prior revision of this proposal, where it is currently called `importHook`.
   loadHook?: (fullSpecifier: string) => Promise<ModuleDescriptor?>
 
   // A ModuleDescriptor can have an `importMeta` property.
-  // The compartment assigns these properties over the true `import.meta`
+  // The loader assigns these properties over the true `import.meta`
   // object for the module instance.
   // That object in turn has a null prototype.
   // However some properties of `import.meta` are too expensive for a host
@@ -352,40 +360,40 @@ type CompartmentConstructorOptions = {
   // which can be avoided for modules that never utter `import.meta`
   // in their sources.
   // This hook gets called for any module that utters `import.meta`,
-  // so some work can be deferred until just before the compartment
+  // so some work can be deferred until just before the loader
   // initializes the module.
   importMetaHook?: (fullSpecifier: string, importMeta: Object) => void,
 };
 
-interface Compartment {
+interface Loader {
   // Note: This single-argument form differs from earlier proposal versions,
   // implementations of SES shim, and Moddable's XS, which accept three arguments,
   // including a final options bag.
-  constructor(options?: CompartmentConstructorOptions): Compartment;
+  constructor(options?: LoaderConstructorOptions): Loader;
 
-  // Accessor for this compartment's globals.
+  // Accessor for this loader's globals.
   // If borrowGlobals is true, globalThis is object identical to the incubating
-  // compartment's globalThis.
+  // loader's globalThis.
   // If borrowGlobals is false, globalThis is a unique, ordinary object
-  // intrinsic to this compartment.
+  // intrinsic to this loader.
   // The globalThis object initially has only "shared intrinsics",
-  // followed by compartment-specific "eval", "Function", and "Compartment",
+  // followed by loader-specific "eval", "Function", and "Loader",
   // followed by any properties transferred from the "globals"
   // constructor option with the semantics of Object.assign.
   globalThis: Object,
 
-  // Evaluates a program program using this compartment's associated global
+  // Evaluates a program program using this loader's associated global
   // environment record.
-  // A subsequent proposal might add options to either the compartment
+  // A subsequent proposal might add options to either the loader
   // constructor or the evaluate method to persist the global contour
-  // between calls to evaluate, making compartments a suitable
+  // between calls to evaluate, making loaders a suitable
   // tool for a REPL, such that a const or let binding from one evaluation
   // persists to the next.
   // Subsequent proposals might afford other modes, like sloppy globals mode.
   // TODO is sloppyGlobalsMode only sensible in the context of the shim?
   evaluate(source: string): any;
 
-  // load causes a compartment to load module descriptors for the
+  // load causes a loader to load module descriptors for the
   // transitive dependencies of a specified module into its
   // memo, but does not initialize any modules.
   // The load function is useful for tools like bundlers and importmap
@@ -446,15 +454,15 @@ import('./thenable.js').then((x) => {
 This is the behavior of a dynamic import today, despite it being surprising.
 
 We have chosen to embrace this hazard since it would be worse to have
-dynamic import and compartment import behave differently.
+dynamic import and loader import behave differently.
 
-However, with `compartment.importNow`, a program can mitigate this hazard.
+However, with `loader.importNow`, a program can mitigate this hazard.
 With `importNow`, the following program will not invoke the `then`
 function exported by `'./thenable.js'`.
 
 ```js
-await compartment.load('./thenable.js');
-const thenableNamespace = compartment.importNow('./thenable.js');
+await loader.load('./thenable.js');
+const thenableNamespace = loader.importNow('./thenable.js');
 ```
 
 [browserify]: https://browserify.org/
