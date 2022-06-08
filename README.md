@@ -133,6 +133,41 @@ Below is a rough sketch of potential interfaces.
   The environment record does not contain a property for any names that are
   imported and reexported without a lexical binding.
 
+A compartment privately retains references to:
+
+* A global object
+* A global environment record
+* A static module record promise memo
+* A static module record memo
+* A module instance promise memo
+* A module instance memo
+* A resolve hook
+* A load hook
+* An import meta hook
+
+Every realm retains in itself an intrinsic compartment, with a host-defined global
+environment, resolve hook, load hook, and import meta hook.
+Every constructed compartment (guest) by default shares the global object, global
+environment record, resolve hook, load hook, and *static* memos of its host.
+Compartment constructor options may override these defaults.
+
+Compartments accept a `globals` option.
+If provided, the guest compartment will create its own empty global object with a
+null prototype and derive its own global environment record from that object.
+The compartment will then create an intrinsic `eval`, `Function`, and `Compartment` that
+refer back to the global environment record, such that scripts and modules
+evaluated in the compartment share this global environment record and such that
+direct `eval` in the compartment can succeed.
+The compartment then copies the enumerable own properties of the `globals` option
+onto the new `globalThis` using `[[Set]]`.
+
+The Compartment constructor accepts host-virtualization hooks for loading behavior
+including a `resolveHook`, `loadHook`, `importMetaHook`,and a `modules` record.
+If a Compartment constructor receives any of these options, the Compartment constructor
+will prepare new, empty memos, and adopt the provided host-virtualization hooks.
+The `loadHook` can still adopt entries from the host's memos by returning
+a descriptor that refers to them by their full specifier.
+
 ```ts
 type ModuleExportsNamespace = Record<string, unknown>;
 type ModuleEnvironmentRecord = Record<string, unknown>;
@@ -341,29 +376,6 @@ type ModuleDescriptor =
   };
 
 type CompartmentConstructorOptions = {
-  // Every Compartment has a reference to a global environment record that in
-  // turn contains a new globalThis object, global contour, and three
-  // specialized intrinsic evaluators: eval, Function, and Compartment instances.
-  // The new globalThis object contains a subset of the JavaScript language
-  // intrinsics (to be defined in this proposal) and other globals must be
-  // "endowed" to the compartment explicitly with the `globals` option.
-  // All of these evaluators close over the compartment's global environment
-  // record such that they evaluate code in that global environment.
-  // When borrowGlobals is false, a the new Compartment gets a new global
-  // environment record.
-  // When borrowGlobals is true, the new Compartment will have the
-  // same global environment record as associated with the Compartment
-  // constructor used to construct the compartment.
-  // To borrow the globals of an arbitrary compartment, use that compartment's
-  // Compartment constructor, like
-  // new compartment.globalThis.Compartment({ borrowGlobals: true }).
-  borrowGlobals: boolean,
-
-  // Globals to copy onto this compartment's unique globalThis.
-  // Constructor options with globals and borrowGlobals: true would be incoherent and
-  // effect an exception.
-  globals: Object,
-
   // The compartment uses the resolveHook to synchronously elevate
   // an import specifier (as it appears in the source of a StaticModuleRecord
   // or bindings array of a VirtualStaticModuleRecord), to
@@ -386,6 +398,12 @@ type CompartmentConstructorOptions = {
   // Note: This name differs from the implementation of SES shim and a
   // prior revision of this proposal, where it is currently called `importHook`.
   loadHook?: (fullSpecifier: string) => Promise<ModuleDescriptor?>
+
+  // Causes the guest compartment to create its own globalThis instead of sharing
+  // its host's.
+  // The constructor copies the own properties over its own globalThis by
+  // assignment.
+  globals: Object,
 };
 
 interface Compartment {
@@ -395,14 +413,6 @@ interface Compartment {
   constructor(options?: CompartmentConstructorOptions): Compartment;
 
   // Accessor for this compartment's globals.
-  // If borrowGlobals is true, globalThis is object identical to the incubating
-  // compartment's globalThis.
-  // If borrowGlobals is false, globalThis is a unique, ordinary object
-  // intrinsic to this compartment.
-  // The globalThis object initially has only "shared intrinsics",
-  // followed by compartment-specific "eval", "Function", and "Compartment",
-  // followed by any properties transferred from the "globals"
-  // constructor option with the semantics of Object.assign.
   globalThis: Object,
 
   // Evaluates a program program using this compartment's associated global
