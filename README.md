@@ -129,6 +129,41 @@ Below is a rough sketch of potential interfaces.
   The environment record does not contain a property for any names that are
   imported and reexported without a lexical binding.
 
+A loader privately retains references to:
+
+* A global object
+* A global environment record
+* A static module record promise memo
+* A static module record memo
+* A module instance promise memo
+* A module instance memo
+* A resolve hook
+* A load hook
+* An import meta hook
+
+Every realm retains in itself an intrinsic loader, with a host-defined global
+environment, resolve hook, load hook, and import meta hook.
+Every constructed loader (guest) by default shares the global object, global
+environment record, resolve hook, load hook, and *static* memos of its host.
+Loader constructor options may override these defaults.
+
+Loaders accept a `globals` option.
+If provided, the guest loader will create its own empty global object with a
+null prototype and derrive its own global environment record from that object.
+The loader will then create an intrinsic `eval`, `Function`, and `Loader` that
+refer back to the global environment record, such that scripts and modules
+evaluated in the loader share this global environment record and such that
+direct `eval` in the loader can succeed.
+The loader then copies the own properties of the `globals` option
+over the new `globalThis` using assignment.
+
+The loader constructor accepts host-virtualization hooks for loading behavior
+including a `resolveHook`, `loadHook`, `importMetaHook`,and a `modules` record.
+If a loader constructor receives any of these options, the loader constructor
+will prepare new, empty memos, and adopt the provided host-virtualization hooks.
+The `loadHook` can still adopt entries from the host's memos by returning
+a descriptor that refers to them by their full specifier.
+
 ```ts
 type ModuleExportsNamespace = Record<string, unknown>;
 type ModuleEnvironmentRecord = Record<string, unknown>;
@@ -305,29 +340,6 @@ type ModuleDescriptor =
   };
 
 type LoaderConstructorOptions = {
-  // Every Loader has a reference to a global environment record that in
-  // turn contains a new globalThis object, global contour, and three
-  // specialized intrinsic evaluators: eval, Function, and Loader instances.
-  // The new globalThis object contains a subset of the JavaScript language
-  // intrinsics (to be defined in this proposal) and other globals must be
-  // "endowed" to the loader explicitly with the `globals` option.
-  // All of these evaluators close over the loader's global environment
-  // record such that they evaluate code in that global environment.
-  // When borrowGlobals is false, a the new Loader gets a new global
-  // environment record.
-  // When borrowGlobals is true, the new Loader will have the
-  // same global environment record as associated with the Loader
-  // constructor used to construct the loader.
-  // To borrow the globals of an arbitrary loader, use that loader's
-  // Loader constructor, like
-  // new loader.globalThis.Loader({ borrowGlobals: true }).
-  borrowGlobals: boolean,
-
-  // Globals to copy onto this compartment's unique globalThis.
-  // Constructor options with globals and borrowGlobals: true would be incoherent and
-  // effect an exception.
-  globals: Object,
-
   // The loader uses the resolveHook to synchronously elevate
   // an import specifier (as it appears in the source of a StaticModuleRecord
   // or bindings array of a third-party StaticModuleRecord), to
@@ -363,6 +375,12 @@ type LoaderConstructorOptions = {
   // so some work can be deferred until just before the loader
   // initializes the module.
   importMetaHook?: (fullSpecifier: string, importMeta: Object) => void,
+
+  // Causes the guest  loader to create its own globalThis instead of sharing
+  // its host's.
+  // The constructor copies the own properties over its own globalThis by
+  // assignment.
+  globals: Object,
 };
 
 interface Loader {
@@ -372,14 +390,6 @@ interface Loader {
   constructor(options?: LoaderConstructorOptions): Loader;
 
   // Accessor for this loader's globals.
-  // If borrowGlobals is true, globalThis is object identical to the incubating
-  // loader's globalThis.
-  // If borrowGlobals is false, globalThis is a unique, ordinary object
-  // intrinsic to this loader.
-  // The globalThis object initially has only "shared intrinsics",
-  // followed by loader-specific "eval", "Function", and "Loader",
-  // followed by any properties transferred from the "globals"
-  // constructor option with the semantics of Object.assign.
   globalThis: Object,
 
   // Evaluates a program program using this loader's associated global
