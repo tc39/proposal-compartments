@@ -13,6 +13,7 @@ Evaluators for modules.
 * Patrick Soquet, Moddable
 * Kris Kowal, Agoric
 * Jack Works, Sujitech
+* Guy Bedford, OpenJS Foundation
 
 Agoric's [SES shim][ses-shim], Sujitech's [ahead-of-time-SES][AOT-SES] and
 Moddable's [XS][xs-compartments] are actively vetting this proposal
