@@ -130,6 +130,44 @@ Below is a rough sketch of potential interfaces.
   The environment record does not contain a property for any names that are
   imported and reexported without a lexical binding.
 
+A compartment privately retains references to:
+
+* A global object
+* A global environment record
+* A static module record promise memo
+* A static module record memo
+* A module instance promise memo
+* A module instance memo
+* A resolve hook
+* A load hook
+* An import meta hook
+
+Every realm retains in itself an intrinsic compartment, with a host-defined global
+environment, resolve hook, load hook, and import meta hook.
+Every constructed compartment (guest) by default shares the global object, global
+environment record, resolve hook, load hook, and *static* memos of its host.
+Compartment constructor options may override these defaults.
+
+Compartments accept a `globals` option.
+If provided, the guest compartment will create its own empty global object with a
+null prototype and derrive its own global environment record from that object.
+The compartment will then create an intrinsic `eval`, `Function`, and `Compartment` that
+refer back to the global environment record, such that scripts and modules
+evaluated in the compartment share this global environment record and such that
+direct `eval` in the compartment can succeed.
+The compartment then copies the own properties of the `globals` option
+over the new `globalThis` using assignment.
+
+The compartment constructor accepts host-virtualization hooks for loading behavior
+including a `resolveHook`, `loadHook`, `importMetaHook`,and a `modules` record.
+If a compartment constructor receives any of these options, the compartment constructor
+will prepare new, empty memos, and adopt the provided host-virtualization hooks.
+The `loadHook` can still adopt entries from the host's memos by returning
+a descriptor that refers to them by their full specifier.
+
+The following sketch provisionally uses the TypeScript private field marker,
+`#` to indicate internal slots.
+
 ```ts
 type ModuleExportsNamespace = Record<string, unknown>;
 type ModuleEnvironmentRecord = Record<string, unknown>;
@@ -139,17 +177,20 @@ type Binding =
   { import: '*' | string, as?: string, from: string } |
   { export: '*' | string, as?: string, from?: string };
 
-// Compartments support ECMAScript modules and linkage to other kinds of modules,
-// notably allowing for JSON or WASM.
-// SyntheticModuleRecord is a *protocol* that compartments recognize if
+// Compartments support ECMAScript modules and linkage to non-ECMAScript of modules,
+// notably allowing JSON or WASM to integrate with user code.
+// SyntheticStaticModuleRecord is a *protocol* that compartments recognize if
 // the `record` property of a ModuleDescriptor is neither a string nor
 // an object that passes a StaticModuleRecord brand check.
-// These amy provide an initializer function and may declare bindings for
+// These may provide an initializer function and may declare bindings for
 // imported or exported names.
+// The initializer is optional because reexport bindings may be sufficient
+// definition for a synthetic static module record.
 // The bindings correspond to the equivalent `import` and `export` declarations
 // of an ECMAScript module.
 type SyntheticStaticModuleRecord = {
   bindings?: Array<Binding>,
+
   // Initializes the module if it is imported.
   // Initialize may return a promise, indicating that the module uses
   // the equivalent of top-level-await.
@@ -157,26 +198,56 @@ type SyntheticStaticModuleRecord = {
   // rejection will necessarily go unhandled.
   initialize?: (environment: ModuleEnvironmentRecord, {
     import?: (importSpecifier: string) => Promise<ModuleExportsNamespace>,
-    importMeta?: Object
+    importMeta?: Object,
+    // Since the module environment record also reflects the properties of
+    // globalThis, we do not need to thread globalThis.
+    // The module environment record must not fall through to the global
+    // environment record or global contour since those capture top-level
+    // declarations from Script mode eval.
+    // If we add globalLexicals, they would need to be
+    // layered on the module environment record as well.
   }) => void,
+
   // Indicates that initialize needs to receive a dynamic import function that
   // closes over the referrer module specifier.
   needsImport?: boolean,
+
   // Indicates that initialize needs to receive an importMeta.
   needsImportMeta?: boolean,
 };
 
-// Static module records are an opaque token representing the compilation
-// of a module that can be reused across multiple compartments.
+// Static module records represent the compilation of a module that can be
+// reused across multiple compartments.
+// Some properties are both internal and reflected.
+// Compartments consult the internal properties to avoid confusion and the
+// reflected properties exist to empower user code.
+// A reasonable alternative design would provide only a single public
+// non-writable non-configurable data property for each.
 interface StaticModuleRecord {
   // Static module records can be constructed from source.
   // XS allows synthetic module records and source descriptors to
   // be precompiled as well.
   constructor(source: string);
 
+  // StaticModuleRecords capture a host-defined internal representation of the
+  // source with an internal slot.
+  #code: %StaticModuleRepresentation%;
+
+  // An internal slot capturing a representation of the import and export
+  // clauses of the source, in order.
+  #bindings: Array<Binding>;
   // Static module records reflect their bindings for information only.
   // Compartments use internal slots for the compiled code and bindings.
   bindings: Array<Binding>;
+
+  // Indicates that initialize needs to receive a dynamic import function that
+  // closes over the referrer module specifier.
+  #needsImport: boolean;
+  needsImport: boolean;
+
+  // Indicates that initialize needs to receive an importMeta.
+  #needsImportMeta: boolean;
+  needsImportMeta: boolean;
 }
 
 // A ModuleDescriptor captures a static module record and per-compartment metadata.
@@ -362,6 +433,15 @@ type CompartmentConstructorOptions = {
 };
 
 interface Compartment {
+  #global: %Global%;
+  #resolveHook: ResolveHook,
+  #loadHook: LoadHook,
+  #importMetaHook: ImportMetaHook,
+  #recordMemo: Map<string, StaticModuleRecord | SyntheticStaticModuleRecord>;
+  #recordPromiseMemo: Map<string, Promise<StaticModuleRecord | SyntheticStaticModuleRecord>>;
+  #instanceMemo: Map<string, ModuleInstance>;
+  #instancePromiseMemo: Map<string, Promise<ModuleInstance>>;
+
   // Note: This single-argument form differs from earlier proposal versions,
   // implementations of SES shim, and Moddable's XS, which accept three arguments,
   // including a final options bag.
@@ -419,6 +499,58 @@ interface Compartment {
   importNow(fullSpecifier: string): ModuleExportsNamespace;
 
   loadNow(fullSpecifier: string): void;
+}
+
+// Constructs a global environment with its own globalThis containing
+// unique bindings for `eval` and `Function`.
+interface %Global% {
+  constructor();
+  get globalThis: Object;
+  evaluate(string): unknown;
+
+  %eval%: EvalFunction;
+  %Function%: FunctionConstructor;
+  %Compartment%: CompartmentConstructor;
+}
+
+// ModuleInstance reifies an entangled pair of module environment record
+// and module exports namespace from a particular array of bindings
+// that correspond to the `import` and `export` declarations of a
+// module.
+interface %ModuleInstance% {
+  // Creates a module instance for either a static module record
+  // or a synthetic static module record.
+  // Distinguishes a synthetic by StaticModuleRecord brand check.
+  // Creates a module environment record that defers to the
+  // designated global environment record or that associated
+  // with the %ModuleInstance% constructor.
+  // The module instance will delegate to the given compartment for dynamic import
+  // and will use the given compartment's global environment for all eval and
+  // Function constructor behaviors.
+  constructor(
+    record: StaticModuleRecord | SyntheticStaticModuleRecord,
+    {
+      importMeta?: Object,
+      compartment?: Compartment,
+    }
+  );
+
+  namespace: ModuleExportsNamespace;
+
+  environment: ModuleEnvironmentRecord;
+
+  // Links the module instance with another module instance
+  // for one of the importSpecifiers declared in the constructed
+  // bindings.
+  link(importSpecifier: string, instance: %ModuleInstance%);
+
+  // Initializes a module instance.
+  // Throws an error if any of its invariants are not satisfied.
+  // The module instances for the given module environment record
+  // and their transitive module instance dependencies must be fully linked.
+  // Defers to the initialize function of a synthetic static module record,
+  // reifying and providing its own module environment record.
+  initialize(): void | Promise<void>;
 }
 ```
 
