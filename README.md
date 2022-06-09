@@ -436,7 +436,35 @@ interface Loader {
 }
 ```
 
-### Design Rationales
+## Motivating Examples and Design Rationales
+
+### Multiple-instantiation
+
+This example illustrates the use of a new loader to support multiple
+instantiation of modules, reusing the host's loader and static module record
+memos as a cache.
+This example creates five instances of the example module and its transitive
+dependencies.
+
+```js
+for (let i = 0; i < 5; i += 1) {
+  new Loader().import('https://example.com/example.js');
+}
+```
+
+Assuming that the language separately adopted hypothetical `import static`
+syntax to defer execution but load a module and its transitive dependencies, a
+bundler would be able to observe the need to capture the example module and its
+transitive dependencies, such that the *only* instances are in guest loaders.
+
+```js
+import static 'https://example.com/example.js';
+for (let i = 0; i < 5; i += 1) {
+  new Loader().import('https://example.com/example.js');
+}
+```
+
+### Thenable Module Hazard
 
 An exported value named `then` can be statically imported, but dynamic import
 confuses the module namespace for a thenable object.
