@@ -551,6 +551,61 @@ Implementations must take care to ensure that the module record memo and the
 module record *promise* memo point to the same record for a given ultimate full
 specifier.
 
+
+### Bundling or archiving
+
+Compartments can be employed to virtualize a foreign environment and generate
+bundles, archives, or other stored forms of a program for transmission and
+deferred execution.
+
+This first snippet is a minimal bundler.
+It differs from the first minimal example only in that it generates a `sources`
+Map and calls `load` instead of `import`, ensuring we do not attempt to run any
+of the loaded code locally.
+
+```js
+const sources = new Map();
+const compartment = new Compartment({
+  resolveHook(importSpecifier, referrerSpecifier) {
+    return new URL(importSpecifier, referrerSpecifier).href;
+  },
+  async loadHook(fullSpecifier) {
+    const response = await fetch(fullSpecifier);
+    const source = await response.text();
+    sources.set(fullSpecifier, source);
+    return {
+      record: new StaticModuleRecord(source),
+      meta: { url: response.url },
+    };
+  },
+});
+await compartment.load('https://example.com/example.js');
+```
+
+Then, we presumably serialize the `sources` map and recreate it in another
+environment.
+This next figure uses the `sources` to reconstruct the original compartment
+compartment module graph and execute it.
+
+```js
+const evaluator = new Compartment({
+  resolveHook(importSpecifier, referrerSpecifier) {
+    return new URL(importSpecifier, referrerSpecifier).href;
+  },
+  loadHook(fullSpecifier) {
+    const source = sources.get(fullSpecifier);
+    if (source === undefined) {
+      throw new Error('Assertion failed: incomplete sources');
+    }
+    return {
+      record: new StaticModuleRecord(source),
+      meta: { url: response.url },
+    };
+  },
+});
+await evaluator.import('https://example.com/example.js');
+```
+
 ### Thenable Module Hazard
 
 An exported value named `then` can be statically imported, but dynamic import
