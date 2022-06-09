@@ -209,6 +209,14 @@ type ModuleDescriptor =
   | {
     record: StaticModuleRecord,
 
+    // Full specifier, which may differ from the `fullSpecifier` used
+    // as the corresponding key of the `modules` Compartment constructor option,
+    // or the `fullSpecifier` argument of the `loadHook` that returned
+    // the module descriptor.
+    // If present, this will be used as the referrerSpecifier for this record's
+    // importSpecifiers instead.
+    specifier?: string,
+
     // Properties to copy to the `import.meta` of the resulting module instance,
     // if the source mentions `import.meta`.
     importMeta?: Object,
@@ -242,8 +250,10 @@ type ModuleDescriptor =
   | {
     record: SyntheticStaticModuleRecord,
 
-    // Properties to copy to the `import.meta` of the resulting module instance,
-    // if the `record` has a `true` `needsImportMeta` property.
+    // See above.
+    specifier?: string,
+
+    // See above.
     importMeta?: Object,
   }
 
@@ -425,7 +435,109 @@ interface Compartment {
 }
 ```
 
-### Design Rationales
+## Motivating Examples and Design Rationales
+
+### Multiple-instantiation
+
+This example illustrates the use of a new compartment to support multiple
+instantiation of modules, reusing the host's compartment and static module record
+memos as a cache.
+This example creates five instances of the example module and its transitive
+dependencies.
+
+```js
+for (let i = 0; i < 5; i += 1) {
+  new Compartment().import('https://example.com/example.js');
+}
+```
+
+Assuming that the language separately adopted hypothetical `import static`
+syntax to defer execution but load a module and its transitive dependencies, a
+bundler would be able to observe the need to capture the example module and its
+transitive dependencies, such that the *only* instances are in guest compartments.
+
+```js
+import static 'https://example.com/example.js';
+for (let i = 0; i < 5; i += 1) {
+  new Compartment().import('https://example.com/example.js');
+}
+```
+
+### Virtualized web compartment
+
+This example illustrates a very reductive emulation of a web-based compartment.
+The module specifier domain is strictly URLs and import specifiers are resolved
+relative to the referrer module specifier using URL resolution.
+The compartment populates `import.meta.url` with the response URL.
+
+The compartment also ensures that the import specifiers of whatever module is
+loaded get resolved relative to the physical location of the resource.
+If the response URL shows that the fetch followed redirects, the `loadHook`
+returns a reference (`{instance: response.url}`) to the actual module instead
+of returning a record.
+The compartment then follows-up with a request for the redirected location.
+
+```js
+const compartment = new Compartment({
+  resolveHook(importSpecifier, referrerSpecifier) {
+    return new URL(importSpecifier, referrerSpecifier).href;
+  },
+  async loadHook(url) {
+    const response = await fetch(url, { redirect: 'manual' });
+    if (response.url !== url) {
+      return { instance: response.url };
+    }
+    const source = await response.text();
+    return {
+      record: new StaticModuleRecord(source),
+      importMeta: { url: response.url },
+    };
+  },
+});
+await compartment.import('https://example.com/example.js');
+```
+
+By returning an alias module descriptor, the compartment can ensure
+that requests for both the request URL and the response URL refer
+to the canonicalized module.
+
+---
+
+For the same intended effect but a single fetch, we might
+alternately use a `specifier` property of record module descriptors.
+In the following example, both the request URL and the response URL
+would realize cache keys in the compartment.
+
+```js
+const compartment = new Compartment({
+  resolveHook(importSpecifier, referrerSpecifier) {
+    return new URL(importSpecifier, referrerSpecifier).href;
+  },
+  async loadHook(url) {
+    const response = await fetch(url);
+    const source = await response.text();
+    return {
+      record: new StaticModuleRecord(source),
+      specifier: response.url,
+      importMeta: { url: response.url },
+    };
+  },
+});
+await compartment.import('https://example.com/example.js');
+```
+
+So, we guide the host to instead return the new cache key so the compartment
+can memoize the `loadHook`, sending a single request for the canonicalized
+module specifier.
+
+A design tension with the `specifier` property is that it invites a race
+between two concurrent `loadHook` calls for different specifiers that
+converge on the same response specifier.
+Implementations must take care to ensure that the module record memo and the
+module record *promise* memo point to the same record for a given ultimate full
+specifier.
+
+### Thenable Module Hazard
 
 An exported value named `then` can be statically imported, but dynamic import
 confuses the module namespace for a thenable object.
@@ -477,3 +589,4 @@ const thenableNamespace = compartment.importNow('./thenable.js');
 [webpack]: https://webpack.js.org/
 [xs-compartments]: https://blog.moddable.com/blog/secureprivate/
 [vm-context]: https://nodejs.org/api/vm.html#vm_vm_createcontext_contextobject_options
+[redirect-manual]: https://fetch.spec.whatwg.org/#concept-filtered-response-opaque-redirect
