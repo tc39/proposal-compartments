@@ -112,7 +112,7 @@ modules.
 
 ### Sketch
 
-This is a rough sketch of potential interfaces.
+Below is a rough sketch of potential interfaces.
 
 * A "module instance" consists of a "module exports namespace", a "module
   environment record", and a "static module record".
@@ -424,7 +424,7 @@ An exported value named `then` can be statically imported, but dynamic import
 confuses the module namespace for a thenable object.
 The resolution of the promise returned by dynamic import, in this case, is the
 eventual resolution of the thenable module.
-This is unlikely to be an intended effect.
+And the eventual resolution is unlikely to be an intended effect.
 
 Consider `thenable.js`:
 
@@ -434,7 +434,7 @@ export function then(resolve) {
 }
 ```
 
-This might be dynamically imported by a neighboring module.
+A neighboring module might dynamically import this.
 
 ```js
 import('./thenable.js').then((x) => {
