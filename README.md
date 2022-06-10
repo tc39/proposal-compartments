@@ -90,7 +90,7 @@ in a single realm include:
 
 Defining a module loader in the language also improves the language's ability
 to evolve.
-For example, a module loader interface that accounts for linking third-party
+For example, a module loader interface that accounts for linking "synthetic"
 modules that are not JavaScript facilitates easier experimentation with linkage
 against languages like WASM.
 For another, a module loader interface allows for user space experimentation
@@ -122,7 +122,7 @@ Below is a rough sketch of potential interfaces.
 * A "module environment record" is the scope into which a module imports names
   from other modules and exports names to other modules.
   This proposal reifies a module environment record as an exotic object that
-  third-party modules can use to implement bindings.
+  synthetic modules can use to implement bindings.
   An `import name as alias` binding will have a property with the lexically bound alias.
   An `export name as alias` binding will have a property with the lexically bound name,
   whereas the module exports namespace will have a property with the alias.
@@ -140,33 +140,36 @@ type Binding =
 
 // Compartments support ECMAScript modules and linkage to other kinds of modules,
 // notably allowing for JSON or WASM.
-// These must provide an initializer function and may declare bindings for
+// SyntheticModuleRecord is a *protocol* that compartments recognize if
+// the `record` property of a ModuleDescriptor is neither a string nor
+// an object that passes a StaticModuleRecord brand check.
+// These amy provide an initializer function and may declare bindings for
 // imported or exported names.
 // The bindings correspond to the equivalent `import` and `export` declarations
 // of an ECMAScript module.
-type ThirdPartyStaticModuleRecord = {
+type SyntheticStaticModuleRecord = {
   bindings?: Array<Binding>,
   // Initializes the module if it is imported.
   // Initialize may return a promise, indicating that the module uses
   // the equivalent of top-level-await.
   // XXX The compartment will leave that promise to dangle, so an eventual
   // rejection will necessarily go unhandled.
-  initialize(environment: ModuleEnvironmentRecord, {
+  initialize?: (environment: ModuleEnvironmentRecord, {
     import?: (importSpecifier: string) => Promise<ModuleExportsNamespace>,
     importMeta?: Object
-  }),
+  }) => void,
   // Indicates that initialize needs to receive a dynamic import function that
   // closes over the referrer module specifier.
-  needsImport: boolean,
+  needsImport?: boolean,
   // Indicates that initialize needs to receive an importMeta.
-  needsImportMeta: boolean,
+  needsImportMeta?: boolean,
 };
 
 // Static module records are an opaque token representing the compilation
 // of a module that can be reused across multiple compartments.
 interface StaticModuleRecord {
   // Static module records can be constructed from source.
-  // XS allows third-party module records and source descriptors to
+  // XS allows synthetic module records and source descriptors to
   // be precompiled as well.
   constructor(source: string);
 
@@ -207,25 +210,25 @@ type ModuleDescriptor =
     importMeta?: Object,
   }
 
-  // Describes a module by a *reusable* third-party static module record.
+  // Describes a module by a *reusable* synthetic static module record.
   // When the compartment _loads_ the module, it will use the bindings array
-  // of the third-party static module record to discover shallow dependencies
+  // of the synthetic static module record to discover shallow dependencies
   // in lieu of compiling the source, and otherwise behaves identically
   // to { source } descriptors.
   // When the compartment _imports_ the module, it will construct a
   // [[ModuleEnvironmentRecord]] and [[ModuleExportsNamespace]] based
-  // entirely on the bindings array of the third-party static module record.
-  // If the third-party static-module-record has a true `needsImport`, the
+  // entirely on the bindings array of the synthetic static module record.
+  // If the synthetic static-module-record has a true `needsImport`, the
   // compartment will construct an `import` that resolves
   // the given import specifier relative to the module instance's full specifier
   // and returns a promise for the module exports namespace of the
   // imported module.
-  // If the third-party static-module-record has a true `needsImportMeta`
+  // If the synthetic static-module-record has a true `needsImportMeta`
   // property, the compartment will construct an `importMeta` by the
   // same process as any { source } module.
   // `importMeta` will otherwise be `undefined`.
   // The compartment will then initialize the module by calling the
-  // `initialize` function of the third-party static module record,
+  // `initialize` function of the synthetic static module record,
   // giving it the module environment record and an options bag containing
   // either `import` or `importMeta` if needed.
   // The compartment memoizes a promise for the module exports namespace
@@ -233,7 +236,7 @@ type ModuleDescriptor =
   // where the behavior if the initialize function is async is analogous to
   // top-level-await for a module compiled from source.
   | {
-    record: ThirdPartyStaticModuleRecord,
+    record: SyntheticStaticModuleRecord,
 
     // Properties to copy to the `import.meta` of the resulting module instance,
     // if the `record` has a `true` `needsImportMeta` property.
@@ -251,7 +254,7 @@ type ModuleDescriptor =
   // This compartment then resolves the shallow dependencies according
   // to its own resolveHook and loads the consequent transitive dependencies.
   // If the compartment _imports_ the module, the behavior is equivalent
-  // to loading for the retrieved static module record or third-party static
+  // to loading for the retrieved static module record or synthetic static
   // module record.
   | {
     record: string,
@@ -322,7 +325,7 @@ type CompartmentConstructorOptions = {
 
   // The compartment uses the resolveHook to synchronously elevate
   // an import specifier (as it appears in the source of a StaticModuleRecord
-  // or bindings array of a third-party StaticModuleRecord), to
+  // or bindings array of a SyntheticStaticModuleRecord), to
   // the corresponding full specifier, given the full specifier of the
   // referring (containing) module.
   // The full specifier is the memo key for the module.
