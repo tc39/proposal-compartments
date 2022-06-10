@@ -593,6 +593,31 @@ await compartment.load('./thenable.js');
 const thenableNamespace = compartment.importNow('./thenable.js');
 ```
 
+# Encapsulate or reveal ModuleInstance
+
+This proposal tenatively hides `%ModuleInstance%` and `%Global%`.
+A coherent alternate to this design could reveal both of these and hide
+`Compartment`.
+However, a language-defined loader is better positioned to maintain
+the invariant that dynamic and static import in a module should
+consistently bind the same module instance to the same module specifier from
+within a particular referrer module.
+A reified `ModuleInstance` constructor would need to accept an arbitrary
+dynamic import hook.
+
+One motivation for revealing `ModuleInstance` would be to avoid
+litigating the complications of a `Compartment` definition.
+However, given that loader behavior is necessarily already specified
+as part of the definition of a realm, there is no version of
+this proposal that can omit `Compartment` entirely.
+
+It might, however, be possible to hide `%Compartment%` and avoid specifying module
+descriptors.
+Although that is an attractive simplification, Module descriptors are necessary
+for embedded systems, such that a static module record may pass from a host
+loader to a guest loader by name, without a JavaScript representation, and
+useful even when not necessary.
+
 [browserify]: https://browserify.org/
 [import-map]: https://github.com/WICG/import-maps
 [jest-ses-interaction]: https://github.com/facebook/jest/issues/11952
