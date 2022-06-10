@@ -94,7 +94,7 @@ in a single realm include:
 
 Defining a module loader in the language also improves the language's ability
 to evolve.
-For example, a module loader interface that accounts for linking "synthetic"
+For example, a module loader interface that accounts for linking "virtual"
 modules that are not JavaScript facilitates easier experimentation with linkage
 against languages like WASM.
 For another, a module loader interface allows for user space experimentation
@@ -126,7 +126,7 @@ Below is a rough sketch of potential interfaces.
 * A "module environment record" is the scope into which a module imports names
   from other modules and exports names to other modules.
   This proposal reifies a module environment record as an exotic object that
-  synthetic modules can use to implement bindings.
+  virtual modules can use to implement bindings.
   An `import name as alias` binding will have a property with the lexically bound alias.
   An `export name as alias` binding will have a property with the lexically bound name,
   whereas the module exports namespace will have a property with the alias.
@@ -160,14 +160,14 @@ type Binding =
 
 // Compartments support ECMAScript modules and linkage to other kinds of modules,
 // notably allowing for JSON or WASM.
-// SyntheticModuleRecord is a *protocol* that compartments recognize if
+// VirtualStaticModuleRecord is a *protocol* that compartments recognize if
 // the `record` property of a ModuleDescriptor is neither a string nor
 // an object that passes a StaticModuleRecord brand check.
 // These amy provide an initializer function and may declare bindings for
 // imported or exported names.
 // The bindings correspond to the equivalent `import` and `export` declarations
 // of an ECMAScript module.
-type SyntheticStaticModuleRecord = {
+type VirtualStaticModuleRecord = {
   // Indicates the import and export bindings the module has
   // between its module environment record, module exports namespace,
   // and its dependencies.
@@ -195,7 +195,7 @@ type SyntheticStaticModuleRecord = {
 // of a module that can be reused across multiple compartments.
 interface StaticModuleRecord {
   // Static module records can be constructed from source.
-  // XS allows synthetic module records and source descriptors to
+  // XS allows virtual module records and source descriptors to
   // be precompiled as well.
   constructor(source: string);
 
@@ -249,25 +249,25 @@ type ModuleDescriptor =
     importMeta?: Object,
   }
 
-  // Describes a module by a *reusable* synthetic static module record.
+  // Describes a module by a *reusable* virtual static module record.
   // When the compartment _loads_ the module, it will use the bindings array
-  // of the synthetic static module record to discover shallow dependencies
+  // of the virtual static module record to discover shallow dependencies
   // in lieu of compiling the source, and otherwise behaves identically
   // to { source } descriptors.
   // When the compartment _imports_ the module, it will construct a
   // [[ModuleEnvironmentRecord]] and [[ModuleExportsNamespace]] based
-  // entirely on the bindings array of the synthetic static module record.
-  // If the synthetic static-module-record has a true `needsImport`, the
+  // entirely on the bindings array of the virtual static module record.
+  // If the virtual static-module-record has a true `needsImport`, the
   // compartment will construct an `import` that resolves
   // the given import specifier relative to the module instance's full specifier
   // and returns a promise for the module exports namespace of the
   // imported module.
-  // If the synthetic static-module-record has a true `needsImportMeta`
+  // If the virtual static-module-record has a true `needsImportMeta`
   // property, the compartment will construct an `importMeta` by the
   // same process as any { source } module.
   // `importMeta` will otherwise be `undefined`.
   // The compartment will then initialize the module by calling the
-  // `initialize` function of the synthetic static module record,
+  // `initialize` function of the virtual static module record,
   // giving it the module environment record and an options bag containing
   // either `import` or `importMeta` if needed.
   // The compartment memoizes a promise for the module exports namespace
@@ -275,7 +275,7 @@ type ModuleDescriptor =
   // where the behavior if the initialize function is async is analogous to
   // top-level-await for a module compiled from source.
   | {
-    record: SyntheticStaticModuleRecord,
+    record: VirtualStaticModuleRecord,
 
     // See above.
     specifier?: string,
@@ -295,7 +295,7 @@ type ModuleDescriptor =
   // This compartment then resolves the shallow dependencies according
   // to its own resolveHook and loads the consequent transitive dependencies.
   // If the compartment _imports_ the module, the behavior is equivalent
-  // to loading for the retrieved static module record or synthetic static
+  // to loading for the retrieved static module record or virtual static
   // module record.
   | {
     record: string,
@@ -366,7 +366,7 @@ type CompartmentConstructorOptions = {
 
   // The compartment uses the resolveHook to synchronously elevate
   // an import specifier (as it appears in the source of a StaticModuleRecord
-  // or bindings array of a SyntheticStaticModuleRecord), to
+  // or bindings array of a VirtualStaticModuleRecord), to
   // the corresponding full specifier, given the full specifier of the
   // referring (containing) module.
   // The full specifier is the memo key for the module.
@@ -604,6 +604,40 @@ const evaluator = new Compartment({
   },
 });
 await evaluator.import('https://example.com/example.js');
+```
+
+### Linking with a Virtual record (JSON example)
+
+To support non-JavaScript languages, a compartment provides a `loadHook` that
+returns virtual-static-module-record implementations.
+This example virtual-static-module-record declares its bindings (equivalent to
+`export default` in this case) and provides an initializer.
+The initializer receives a module environment record according to the shape
+declared in its bindings.
+This compartment makes the simplifying assumption that all modules are JSON.
+A more elaborate version of this example will switch on the response MIME type
+and account for import assertions.
+
+```js
+const compartment = new Compartment({
+  resolveHook(importSpecifier, referrerSpecifier) {
+    return new URL(importSpecifier, referrerSpecifier).href;
+  },
+  async loadHook(fullSpecifier) {
+    const response = await fetch(fullSpecifier);
+    const source = await response.text();
+    const record = {
+      bindings: [
+        {export: 'default'},
+      ],
+      initialize(env) {
+        env.default = JSON.parse(source);
+      }
+    };
+    return { record };
+  },
+});
+await compartment.import('https://example.com/example.json');
 ```
 
 ### Thenable Module Hazard
