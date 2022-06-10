@@ -592,6 +592,43 @@ const evaluator = new Compartment({
 await evaluator.import('https://example.com/example.js');
 ```
 
+### Linking with a synthetic record (JSON example)
+
+To support non-JavaScript languages, a compartment provides a `loadHook` that
+returns synthetic static-module-record implementations.
+This example synthetic static-module-record declares its bindings (equivalent to
+`export default` in this case) and provides an initializer.
+The initializer receives a module environment record according to the shape
+declared in its bindings.
+This compartment makes the simplifying assumption that all modules are JSON.
+A more elaborate version of this example will switch on the response MIME type
+and account for import assertions.
+
+```js
+const compartment = new Compartment({
+  resolveHook(importSpecifier, referrerSpecifier) {
+    return new URL(importSpecifier, referrerSpecifier).href;
+  },
+  async loadHook(fullSpecifier) {
+    const response = await fetch(fullSpecifier);
+    const source = await response.text();
+    const record = {
+      bindings: [
+        {export: 'default'},
+      ],
+      initialize(env) {
+        env.default = JSON.parse(source);
+      }
+    };
+    return { record };
+  },
+});
+await compartment.import('https://example.com/example.json');
+```
+
+This is analogous to the synthetic module record in the [JSON module
+proposal](https://github.com/tc39/proposal-json-modules).
+
 ### Thenable Module Hazard
 
 An exported value named `then` can be statically imported, but dynamic import
