@@ -134,10 +134,12 @@ Below is a rough sketch of potential interfaces.
 type ModuleExportsNamespace = Record<string, unknown>;
 type ModuleEnvironmentRecord = Record<string, unknown>;
 
+type BindingAssertion = { type?: string };
+
 // Bindings reflect the `import` and `export` statements of a module.
 type Binding =
-  { import: '*' | string, as?: string, from: string } |
-  { export: '*' | string, as?: string, from?: string };
+  { import: '*' | string, as?: string, from: string, assert?: BindingAssertion } |
+  { export: '*' | string, as?: string, from?: string, assert?: BindingAssertion };
 
 // Compartments support ECMAScript modules and linkage to other kinds of modules,
 // notably allowing for JSON or WASM.
@@ -164,6 +166,15 @@ type SyntheticStaticModuleRecord = {
   needsImport?: boolean,
   // Indicates that initialize needs to receive an importMeta.
   needsImportMeta?: boolean,
+  // Indicates that this synthetic static module record satisfies
+  // matching import type assertions.
+  // (TODO, Tentatively,) an absent type property indicates that the
+  // synthetic static module record satisfies any import type assertion.
+  // (Alternately, the `type` property is required and any synthetic
+  // static module record will fail to load when first encountered
+  // by a compartment, either when found in a `modules` compartment
+  // constructor option, or when returned by a `loadHook`.)
+  type?: string,
 };
 
 // Static module records are an opaque token representing the compilation
@@ -177,6 +188,10 @@ interface StaticModuleRecord {
   // Static module records reflect their bindings for information only.
   // Compartments use internal slots for the compiled code and bindings.
   bindings: Array<Binding>;
+
+  // The type property indicates that this record satisfies type assertions
+  // for JavaScript modules.
+  type: 'javascript';
 }
 
 // A ModuleDescriptor captures a static module record and per-compartment metadata.
@@ -421,6 +436,29 @@ interface Compartment {
   loadNow(fullSpecifier: string): void;
 }
 ```
+
+### Import Type Assertions
+
+Compartments account for import type assertions and preserves the invariant
+that a type assertion must not indicate to the module loader how a module's
+content should be interpreted.
+To that end, static module records (both natural and synthetic) indicate
+how they interpreted the module's content.
+Natural static module records indicate that they interpret the module
+source text as merely `'javascript'`.
+Synthetic static module records may purport to interpret any type of module.
+
+Import type assertions apply to specific bindings of a dependee.
+When a compartment links one module instance to another, it reviews
+the assertions indicated on each binding and fails to link for the
+first imported module instance that with a corresponding static module record
+that claims to be of a type that is not consistent with the type assertion.
+
+So, if for example a virtualized web host produced static module records
+of varying types based on the response MIME type, they would indicate
+the corresponding module type as a property of any synthetic static module
+records and the compartment would use this information to validate any
+import type assertions.
 
 ### Design Rationales
 
