@@ -138,9 +138,25 @@ type ModuleExportsNamespace = Record<string, unknown>;
 type ModuleEnvironmentRecord = Record<string, unknown>;
 
 // Bindings reflect the `import` and `export` statements of a module.
+// A statement with multiple clauses decomposes into multiple bindings.
 type Binding =
-  { import: '*' | string, as?: string, from: string } |
-  { export: '*' | string, as?: string, from?: string };
+
+  // import { X } from 'X';
+  // import { X as Y } from 'X';
+  { import: string, as?: string, from: string } |
+
+  // export { X }
+  // export { X as Y }
+  // export { X } from 'X';
+  // export { X as Y } from 'X';
+  { export: string, as?: string, from?: string } |
+
+  // import * as X from 'X';
+  { importAllFrom: string, as: string } |
+
+  // export * from 'X';
+  // export * as X from 'X';
+  { exportAllFrom: string, as?: string };
 
 // Compartments support ECMAScript modules and linkage to other kinds of modules,
 // notably allowing for JSON or WASM.
