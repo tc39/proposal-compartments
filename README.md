@@ -168,7 +168,11 @@ type Binding =
 // The bindings correspond to the equivalent `import` and `export` declarations
 // of an ECMAScript module.
 type SyntheticStaticModuleRecord = {
+  // Indicates the import and export bindings the module has
+  // between its module environment record, module exports namespace,
+  // and its dependencies.
   bindings?: Array<Binding>,
+
   // Initializes the module if it is imported.
   // Initialize may return a promise, indicating that the module uses
   // the equivalent of top-level-await.
@@ -178,9 +182,11 @@ type SyntheticStaticModuleRecord = {
     import?: (importSpecifier: string) => Promise<ModuleExportsNamespace>,
     importMeta?: Object
   }) => void,
+
   // Indicates that initialize needs to receive a dynamic import function that
   // closes over the referrer module specifier.
   needsImport?: boolean,
+
   // Indicates that initialize needs to receive an importMeta.
   needsImportMeta?: boolean,
 };
@@ -196,6 +202,13 @@ interface StaticModuleRecord {
   // Static module records reflect their bindings for information only.
   // Compartments use internal slots for the compiled code and bindings.
   bindings: Array<Binding>;
+
+  // Indicates that initialize needs to receive a dynamic import function that
+  // closes over the referrer module specifier.
+  needsImport?: boolean,
+
+  // Indicates that initialize needs to receive an importMeta.
+  needsImportMeta?: boolean,
 }
 
 // A ModuleDescriptor captures a static module record and per-compartment metadata.
@@ -217,8 +230,6 @@ type ModuleDescriptor =
   // * If the module descriptor has an `importMeta` property, the compartment
   //   will copy the own properties of the descriptor's `importMeta` over
   //   the compartment's `importMeta' using `[[Set]]`.
-  // * If the compartment has an `importMetaHook`, it will call
-  //   `importMetaHook(fullSpecifier, importMeta)`.
   // The compartment will then begin initializing the module.
   // The compartment memoizes a promise for the module exports namespace
   // that will be fulfilled at a time already defined in 262 for dynamic import.
@@ -365,19 +376,6 @@ type CompartmentConstructorOptions = {
   // Note: This name differs from the implementation of SES shim and a
   // prior revision of this proposal, where it is currently called `importHook`.
   loadHook?: (fullSpecifier: string) => Promise<ModuleDescriptor?>
-
-  // A ModuleDescriptor can have an `importMeta` property.
-  // The compartment assigns these properties over the true `import.meta`
-  // object for the module instance.
-  // That object in turn has a null prototype.
-  // However some properties of `import.meta` are too expensive for a host
-  // to instantiate for every module, like Node.js's `import.meta.resolve`,
-  // which can be avoided for modules that never utter `import.meta`
-  // in their sources.
-  // This hook gets called for any module that utters `import.meta`,
-  // so some work can be deferred until just before the compartment
-  // initializes the module.
-  importMetaHook?: (fullSpecifier: string, importMeta: Object) => void,
 };
 
 interface Compartment {
