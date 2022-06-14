@@ -606,7 +606,69 @@ const evaluator = new Compartment({
 await evaluator.import('https://example.com/example.js');
 ```
 
-### Linking with a Virtual record (JSON example)
+### Inter-compartment linkage
+
+One motivating use of compartments is to isolate Node.js-style packages and
+limit their access to powerful modules and globals, to mitigate software supply
+chain attacks.
+With such an application, we would construct a special compartment for each package
+and allow compartments to link modules across compartment boundaries.
+
+In this trivial example, we construct a pair of compartments, `even` and `odd`,
+which in turn contain mutually dependent `even` and `odd` modules that
+participate in a dependency cycle.
+For simplicity, the domain of module specifiers is exactly the names `even` and
+`odd`, and these compartments do not support resolution.
+
+These compartments use `{ instance, compartment }` module descriptors to indicate
+linkage across compartment boundaries.
+
+```js
+const even = new Compartment({
+  resolveHook: specifier => specifier,
+  loadHook: async specifier => {
+    if (specifier === 'even') {
+      return { record: new StaticModuleRecord(`
+        import isOdd from 'odd';
+        export default n => n === 0 || isOdd(n - 1);
+      `) };
+    } else if (specifier === 'odd') {
+      return { instance: specifier, compartment: odd };
+    } else {
+      throw new Error(`No such module ${specifier}`);
+    }
+  },
+});
+
+const odd = new Comaprtment({
+  resolveHook: specifier => specifier,
+  loadHook: async specifier => {
+    if (specifier === 'odd') {
+      return { record: new StaticModuleRecord(`
+        import isEven from 'even';
+        export default n => n !== 0 && isEven(n - 1);
+      `) };
+    } else if (specifier === 'even') {
+      return { instance: specifier, compartment: even };
+    } else {
+      throw new Error(`No such module ${specifier}`);
+    }
+  },
+});
+```
+
+An alternative design that Agoric's SES shim and XS's native Compartment
+explored used module exports namespace objects as handles that could be passed
+between compatment hooks.
+However, to support the bundler use case, it became necessary to add a method
+that could get a module exports namespace object for a module that had not yet
+been loaded (`compartment.module(specifier)`, much less instantiated, nor
+initialized.
+The invention of a module descriptor allowed us to remove this complication,
+among others: the `moduleMapHook` became superfluous since both the `modules`
+constructor option and the `loadHook` could use module descriptors instead.
+
+### Linking with a virtual record (JSON example)
 
 To support non-JavaScript languages, a compartment provides a `loadHook` that
 returns virtual-static-module-record implementations.
