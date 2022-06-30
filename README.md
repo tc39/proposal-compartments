@@ -6,14 +6,17 @@ Evaluators for modules.
 
 **Champions**:
 
-* Bradley Farias, GoDaddy
 * Mark S. Miller, Agoric
 * Caridy Patiño, Salesforce
-* Jean-Francois Paradis, Salesforce
 * Patrick Soquet, Moddable
 * Kris Kowal, Agoric
 * Jack Works, Sujitech
 * Guy Bedford, OpenJS Foundation
+
+**Emeritus**:
+
+* Bradley Farias, GoDaddy
+* Jean-Francois Paradis, Salesforce
 
 Agoric's [SES shim][ses-shim], Sujitech's [ahead-of-time-SES][AOT-SES] and
 Moddable's [XS][xs-compartments] are actively vetting this proposal
