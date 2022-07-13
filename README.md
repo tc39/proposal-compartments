@@ -189,6 +189,9 @@ type VirtualStaticModuleRecord = {
 
   // Indicates that initialize needs to receive an importMeta.
   needsImportMeta?: boolean,
+
+  // Indicates if the initialize function returns a promise.
+  isAsync?: boolean,
 };
 
 // Static module records are an opaque token representing the compilation
@@ -209,6 +212,9 @@ interface StaticModuleRecord {
 
   // Indicates that initialize needs to receive an importMeta.
   needsImportMeta?: boolean,
+
+  // If the module is async (containing top level await)
+  isAsync?: boolean,
 }
 
 // A ModuleDescriptor captures a static module record and per-compartment metadata.
