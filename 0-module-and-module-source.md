@@ -94,7 +94,9 @@ and evaluate modules in their particular realm.
 ### Import Kicker
 
 Any dynamic import function is suitable for initializing, linking, and
-evaluating a module instance and all of its transitive dependencies.
+evaluating a module instance.
+This necessarily implies advancing all of its transitive dependencies to their
+terminal state or any one into a failed state.
 
 ```js
 const source = new ModuleSource(``);
