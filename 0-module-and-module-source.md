@@ -31,8 +31,9 @@ Note 1: `ModuleSource` does for modules what `eval` already does for scripts.
 We expect content security policies to treat module sources similarly.
 A `ModuleSource` instance constructed from text would not have an associated
 origin.
-A `ModuleSource` instance can be constructed from vetted text and host-defined
-import hooks may reveal module sources that were vetted behind the scenes.
+A `ModuleSource` instance can be constructed from vetted text ([W3C Trusted
+Types][trusted-types]) and host-defined import hooks may reveal module sources
+that were vetted behind the scenes.
 
 Note 2: Multiple `Module` instances can be constructed from a single `ModuleSource`,
 producing one exports namespaces for each imported `Module` instance.
@@ -363,3 +364,4 @@ Using dynamic import is consistent with an interpretation of the module blocks
 proposal where module blocks evaluate to `Module` instances.
 
 [module-blocks]: https://github.com/tc39/proposal-js-module-blocks
+[trusted-types]: https://w3c.github.io/webappsec-trusted-types/dist/spec/
