@@ -50,28 +50,33 @@ with these other proposals.
 
 With that, the Compartments proposal consists of five chapters:
 
-- [Module and ModuleSource](0.md): Provide first-class `Module` and
+- [Module and ModuleSource][0]: Provide first-class `Module` and
   `ModuleSource` constructors and extend dynamic import to operate on `Module`
   instances.
 
-- [Surface Module Source Static Analysis](1.md): Extend instances of
+- [Surface Module Source Static Analysis][1]: Extend instances of
   `ModuleSource` such that they reflect certain results of static analysis,
   like their `import` and `export` bindings, such that tools can inspect module
   graphs.
 
-- [Virtual Module Sources](2.md): Extend the `Module` constructor such that it
+- [Virtual Module Sources][2]: Extend the `Module` constructor such that it
   accepts virtual module sources: objects that implement a protocol that is
   sufficient for virtualizing the evaluation of modules in languages not
   anticipated by ECMA-262 or a host implementations.
 
-- [Evaluators](3.md): Provide an `Evaluators` constructor that produces
+- [Evaluators][3]: Provide an `Evaluators` constructor that produces
   a new `eval` function, `Function` constructor, and `Module` constructor
   such that execution contexts generated from these evaluators refer
   back to this set of evaluators, with a given global object and virtualized
   host behavior for dynamic import in script contexts.
 
-- [Compartment](4.md): Compartments are a high-level mechanism for isolating
+- [Compartment][4]: Compartments are a high-level mechanism for isolating
   and providing limited power to programs within a shared realm.
   Compartments can be implemented in user code using `Evaluators`, `Module`,
   and `ModuleSource`.
 
+[0]: ./0-module-and-module-source.md
+[1]: ./1-static-analysis.md
+[2]: ./2-virtual-module-source.md
+[3]: ./3-evaluator.md
+[4]: ./4-compartment.md

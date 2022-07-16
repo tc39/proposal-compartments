@@ -8,12 +8,12 @@ inspect module graphs.
 
 ## Dependencies
 
-This proposal depends on [Module and ModuleSource](./0.md) from the [Compartments
+This proposal depends on [Module and ModuleSource][0] from the [Compartments
 proposal](README.md) to introduce `ModuleSource`.
 
 ## Design
 
-Extend [ModuleSource](./0.md), such that instances have the following properties:
+Extend [ModuleSource][0], such that instances have the following properties:
 
 - `bindings`, an `Array` of `Binding`s.
 - `needsImportMeta`, a `boolean` indicating that the module contains
@@ -287,6 +287,7 @@ use the syntactic form for dynamic `import`.
 Since virtual module graphs can share relatively few `importHook` instances,
 the potential savings would be negligible, so we've omitted this flag.
 
+[0]: ./0-module-and-module-source.md
 [browserify]: https://browserify.org/
 [import-map]: https://github.com/WICG/import-maps
 [jest-ses-interaction]: https://github.com/facebook/jest/issues/11952

@@ -126,8 +126,8 @@ If absent, the new evaluators will receive the `Evaluator` constructors
 own [[Context]].[[Evaluators]].
 
 The `Evaluators` constructor accepts an `importHook` having the same
-signature as that specified in [Module and ModuleSource](./0.md) of
-the [Compartments proposal](README.md).
+signature as that specified in [Module and ModuleSource][0] of the
+[Compartments proposal](README.md).
 The `importHook` serves multiple roles.
 
 The new `Module` constructor will adopt its evaluator's [[ImportHook]] and
@@ -140,4 +140,5 @@ Dynamic import in script execution contexts will use their
 The import hook will receive the given specifier and the
 [[Context]].[[Evaluators]].[[ImportMeta]].
 
+[0]: ./0-module-and-module-source.md
 [tc53]: https://www.ecma-international.org/technical-committees/tc53/
