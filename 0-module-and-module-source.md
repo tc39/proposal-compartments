@@ -338,6 +338,24 @@ This allows us virtual modules to emulate even hosts that provide empty
 
 ## Design Variables 
 
+### The name of module instances
+
+`Module` instance and `ModuleInstance` instance are both contenders
+for the name of module instances.
+We are tentatively entertaining `Module` because it feels likely that we arrive
+in a world where `(module {}) instanceof Module`.
+The naming calculus would shift significantly if module blocks are reified as
+module source instead of module instance.
+
+We will no doubt arrive in a state of confusion with anything named "module"
+without qualification.
+For example, `WebAssembly.Module` more closely resembles a module source than a
+module instance.
+That would suggest module source should also be `Module`, and consequently
+`ModuleInstance`.
+
+### Form of the kicker method
+
 A functionally equivalent proposal would add an `import` method to the `Module`
 prototype to get a promise for the module's exports namespace instead of
 overloading dynamic `import`.
