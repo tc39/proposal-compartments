@@ -62,7 +62,7 @@ With that, the Compartments proposal consists of five chapters:
 - [Virtual Module Sources][2]: Extend the `Module` constructor such that it
   accepts virtual module sources: objects that implement a protocol that is
   sufficient for virtualizing the evaluation of modules in languages not
-  anticipated by ECMA-262 or a host implementations.
+  anticipated by ECMA-262 or host implementations.
 
 - [Evaluators][3]: Provide an `Evaluators` constructor that produces
   a new `eval` function, `Function` constructor, and `Module` constructor

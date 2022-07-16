@@ -59,7 +59,7 @@ type VirtualModuleSource = {
 ```
 
 Bindings must be one of the shapes proposed in [module source static
-analysis][0], such that for each binding gets linked in a virtual module.
+analysis][1], such that for each binding gets linked in a virtual module.
 
 The `Module` constructor from [Module and ModuleSource](./0-module-and-module-source.md) extends to
 accept virtual module sources instead of `ModuleSource` and reflects whatever
@@ -142,7 +142,7 @@ direct === indirect; // true
 
 This proposal depends on [Module and ModuleSource][0] from the [Compartments
 proposal](README.md) to introduce `ModuleSource`, and [ModuleSource
-analysis][0] from the [Compartments proposal](README.md).
+analysis][1] from the [Compartments proposal](README.md).
 
 ## Design
 
@@ -152,7 +152,7 @@ an exotic object that allows user code to get and set the values for each
 binding.
 
 Bindings must be one of the shapes proposed in [module source static
-analysis][0], such that for each binding gets linked in a virtual module:
+analysis][1], such that for each binding gets linked in a virtual module:
 
 - `{ import: string, from: string }`
 
@@ -273,5 +273,6 @@ present, but it would not be possible for this behavior to generalize to
 virtual module sources.
 
 [0]: ./0-module-and-module-source.md
+[1]: ./1-static-analysis.md
 [web-assembly-module]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WebAssembly/Module
 [structured-clone]: https://developer.mozilla.org/en-US/docs/Web/API/structuredClone

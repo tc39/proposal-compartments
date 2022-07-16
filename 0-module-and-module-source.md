@@ -70,7 +70,7 @@ Record***, a ***Module Record*** and a ***module namespace exotic object***.
 The module has a lifecycle and fresh instances have not been linked,
 initialized, or executed.
 
-Invoking dynamic import on a `Module` instances advances it and its transitive
+Invoking dynamic import on a `Module` instance advances it and its transitive
 dependencies to their end state.
 Consistent with dynamic import for a stringly-named module,
 dynamic import on a `Module` instance produces a promise for the corresponding
@@ -86,7 +86,7 @@ Dynamic import within the evaluation of a `Module` also invokes the
 `Module` instances memoize the result of their `importHook` keyed on the given
 Import Specifier.
 
-`Module` constructors like `Function` constructors are bound to a realm
+`Module` constructors, like `Function` constructors, are bound to a realm
 and evaluate modules in their particular realm.
 
 ## Examples
