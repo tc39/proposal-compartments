@@ -139,6 +139,7 @@ based on the solution in [Endo][endo].
 
 <details>
   <summary>CommonJS virtual module source based on heuristic static analysis.</summary>
+
   ```js
   class CjsModuleSource {
     constructor(source, url) {
@@ -156,7 +157,7 @@ based on the solution in [Endo][endo].
     async execute(namespace, { importMeta, globalThis }) {
       const functor = new globalThis.Function(
         'require', 'exports', 'module', '__filename', '__dirname',
-        `\${this.source} //*/\n//# sourceURL=\${importMeta.url}`
+        source, // Inject source URL here (caveat Github Markdown)
       );
 
       namespace.default = Object.create(globalThis.Object.prototype);
