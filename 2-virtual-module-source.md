@@ -156,7 +156,7 @@ based on the solution in [Endo][endo].
     async execute(namespace, { importMeta, globalThis }) {
       const functor = new globalThis.Function(
         'require', 'exports', 'module', '__filename', '__dirname',
-        `${this.source} //*/\n//@ sourceURL=${importMeta.url}`
+        `\${this.source} //*/\n//# sourceURL=\${importMeta.url}`
       );
 
       namespace.default = Object.create(globalThis.Object.prototype);
