@@ -125,8 +125,10 @@ namespace1 === namespace2; // true
 
 ### Reusing ModuleSource
 
-Any dynamic import function is suitable for initializing a module instance and
-any of its transitive dependencies that have not yet been initialized.
+Module sources are backed by a shared immutable module source record
+that can be instantiated multiple times, even locally.
+Multiple `Module` instances can share a module source and produce
+separate module namespaces.
 
 ```js
 const source = new ModuleSource(``);
