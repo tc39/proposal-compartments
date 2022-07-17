@@ -145,8 +145,10 @@ based on the solution in [Endo][endo].
       this.source = source;
       // Lexical analysis of a CommonJs module reveals the bindings
       // for named exports and invents bindings for imported namespace
-      // objects, such that require just returns a property of the
-      // ESM internal namespace.
+      // objects for every lexically evident require call with a string argument,
+      // such that require just returns a property of the
+      // ESM internal namespace to the already-linked imported module
+      // namespace.
       const { bindings, requires } = lexicallyAnalyzeCjs(source, url);
       this.bindings = bindings;
       this.#requires = requires;
@@ -154,7 +156,7 @@ based on the solution in [Endo][endo].
     async execute(namespace, { importMeta, globalThis }) {
       const functor = new globalThis.Function(
         'require', 'exports', 'module', '__filename', '__dirname',
-        `${this.source} //*/\n//# sourceURL=${importMeta.url}`
+        `${this.source} //*/\n//@ sourceURL=${importMeta.url}`
       );
 
       namespace.default = Object.create(globalThis.Object.prototype);
