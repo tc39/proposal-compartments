@@ -46,7 +46,7 @@ type VirtualModuleSource = {
   execute?: (namespace: ModuleImportsNamespace, {
     import?: (importSpecifier: string) => Promise<ModuleExportsNamespace>,
     importMeta?: Object,
-    globalThis?: Object,
+    globalThis: Object,
   }) => void,
 
   // Indicates that execute needs to receive a dynamic import function
@@ -341,6 +341,15 @@ That will require, in some cases, separation of initialization from execution
 as separate phases.
 Should the virtual module source protocol support separate paths for modules
 that do not require an initialization phase?
+
+### Shape of the internal namespace object
+
+The `execute` method of a virtual module source needs access to both
+the global object and internal view of bindings.
+These could be addressed singly by a reification of the module environment
+record, or with separate objects as written.
+Future amendments to modules may eventually also add lexical names to the
+module environment record that are not properties of the global object.
 
 ## Limitations
 
