@@ -125,6 +125,112 @@ class WasmModuleSource {
 }
 ```
 
+### CommonJS
+
+There is no, singular perfect solution for binding CommonJS, especially
+taking into account that an asynchronous loader cannot immitate Node.js's
+synchronous loader.
+But, any Node.js library that is portable to the web must be sufficiently
+transparent to transparent analysis that bundlers can subsume them, and so,
+large amounts of the CommonJS ecosystem are in fact portable.
+
+This is a sketch of one possible solution for binding CommonJS in ESM,
+based on the solution in [Endo][endo].
+
+<details>
+  <summary>CommonJS virtual module source based on heuristic static analysis.</summary>
+  ```js
+  class CjsModuleSource {
+    constructor(source, url) {
+      this.source = source;
+      // Lexical analysis of a CommonJs module reveals the bindings
+      // for named exports and invents bindings for imported namespace
+      // objects, such that require just returns a property of the
+      // ESM internal namespace.
+      const { bindings, requires } = lexicallyAnalyzeCjs(source, url);
+      this.bindings = bindings;
+      this.#requires = requires;
+    };
+    async execute(namespace, { importMeta, globalThis }) {
+      const functor = new globalThis.Function(
+        'require', 'exports', 'module', '__filename', '__dirname',
+        `${this.source} //*/\n//# sourceURL=${importMeta.url}`
+      );
+
+      namespace.default = Object.create(globalThis.Object.prototype);
+
+      // Set all exported properties on the defult and call namedExportProp to
+      // add them on the namespace for import *.
+      // Root namespace is only accessible for imports.
+      // Requiring from CommonJS gets the default field of the namespace.
+      const promoteToNamedExport = (prop, value) => {
+        //  __esModule needs to be present for typescript-compiled modules to
+        // work, can't be skipped.
+        if (prop !== 'default') {
+          namespace[prop] = value;
+        }
+      };
+
+      const originalExports = new Proxy(namespace.default, {
+        set(_target, prop, value) {
+          promoteToNamedExport(prop, value);
+          namespace.default[prop] = value;
+          return true;
+        },
+        defineProperty(target, prop, descriptor) {
+          if (has(descriptor, 'value')) {
+            // This will result in non-enumerable properties being enumerable
+            // for named import purposes.
+            promoteToNamedExport(prop, descriptor.value);
+          }
+          // All the defineProperty trickery with getters used for lazy
+          // initialization will work.
+          // The trap is here only to elevate the values with namedExportProp
+          // whenever possible.
+          // Replacing getters with wrapped ones to facilitate
+          // propagating the lazy value to the namespace is not possible because
+          // defining a property with modified
+          // descriptor.get in the trap will cause an error.
+          // We use Object.defineProperty instead of Reflect.defineProperty for better
+          // error messages.
+          Object.defineProperty(target, prop, descriptor);
+          return true;
+        },
+      });
+
+      // Machinery to distinguish module.exports assignment.
+      let finalExports = originalExports;
+      const module = freeze({
+        get exports() {
+          return finalExports;
+        },
+        set exports(value) {
+          finalExports = value;
+        },
+      });
+
+      const require = specifier => {
+        return namespace[this.#requires[specifier]];
+      };
+
+      functor(require, moduleExports, module, filename, dirname);
+
+      // Promotes keys from redefined module.export to top level namespace for import *
+      // Note: We could do it less consistently but closer to how node does it if
+      // we iterated over exports detected by the lexer.
+      const exportsHaveBeenReassigned = finalExports !== originalExports;
+      if (exportsHaveBeenReassigned) {
+        namepsace.default = finalExports;
+        keys(namepsace.default || {}).forEach(prop => {
+          if (prop !== 'default')
+            namepsace[prop] = namepsace.default[prop];
+        });
+      }
+    };
+  }
+  ```
+</summary>
+
 ### Pass-through module sources
 
 This example illustrates how a virtual module source can simply
@@ -276,3 +382,4 @@ virtual module sources.
 [1]: ./1-static-analysis.md
 [web-assembly-module]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WebAssembly/Module
 [structured-clone]: https://developer.mozilla.org/en-US/docs/Web/API/structuredClone
+[endo]: https://github.com/endojs/endo
