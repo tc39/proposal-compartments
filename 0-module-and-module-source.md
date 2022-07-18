@@ -210,8 +210,9 @@ Proposal: https://github.com/whatwg/html/pull/5572
 const importHook = async (specifier, importMeta) => {
   const url = importMeta.resolve(specifier);
   const response = await fetch(url);
-  const sourceText = await.response.text();
-  return new Module(sourceText, {
+  const sourceText = await response.text();
+  const source = new ModuleSource(sourceText);
+  return new Module(source, {
     importHook,
     importMeta: createCustomImportMeta(url),
   });
