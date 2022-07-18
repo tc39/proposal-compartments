@@ -393,8 +393,8 @@ This is a partial and untested sketch.
   ```
 </details>
 
-Since compartments can be implemented in terms of the earlier chapters of this
-proposal, it may no longer be necessary for the language to provide a the
+Since compartments can be implemented in terms of the lower-numbered layers of
+this proposal, it may no longer be necessary for the language to provide a the
 Compartment constructor.
 However, one of the primary motivations is being able to use compartments to
 evolve import maps in user code.

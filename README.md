@@ -48,7 +48,7 @@ From these discussions, we discovered a set of lower-level interfaces from
 which compartments could be constructed in user code that were more coherent
 with these other proposals.
 
-With that, the Compartments proposal consists of five chapters:
+With that, the Compartments proposal consists of five layers:
 
 - [Module and ModuleSource][0]: Provide first-class `Module` and
   `ModuleSource` constructors and extend dynamic import to operate on `Module`
