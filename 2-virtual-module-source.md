@@ -335,6 +335,17 @@ only if the virtual module source has a `needsImportMeta` property.
 
 ## Design questions
 
+### Module source serializability invariant
+
+Caridy Patiño prefers an even lower level API for virtual module sources,
+where instead of virtualizing evaluation, we provide a way to construct
+a `Module` instance along with its imports and exports namespaces from their
+bindings.
+In this model, there would be no virtual module source, just modules.
+This would protect the invariant that module sources are serializable.
+
+### Emulated JavaScript
+
 [Should virtual module sources support emulated
 JavaScript?](https://github.com/tc39/proposal-compartments/issues/70)
 That will require, in some cases, separation of initialization from execution

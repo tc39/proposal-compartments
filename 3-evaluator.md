@@ -140,5 +140,27 @@ Dynamic import in script execution contexts will use their
 The import hook will receive the given specifier and the
 [[Context]].[[Evaluators]].[[ImportMeta]].
 
+## Design Questions
+
+### Threading globals
+
+Host implementors may not be able to accommodate an arbitrary value for
+`globalThis`.
+The proposal as written asks for the best user experience, but may need to
+adjust if host implementations cannot support an arbitrary object, or if
+limitations on the given object are not sufficient.
+
+Evaluators will be useful in two different modes:
+
+- Sharing a `globalThis`
+- Having a separate `globalThis`
+
+For separate globals, it would be okay for the `Evaluator` constructor to
+receive a bag of properties to copy onto a global object constructed by the
+host on their behalf.
+
+For shared globals, copying properties isn't useful, so the argument
+pattern would have to be different.
+
 [0]: ./0-module-and-module-source.md
 [tc53]: https://www.ecma-international.org/technical-committees/tc53/

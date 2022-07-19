@@ -344,6 +344,26 @@ This allows us virtual modules to emulate even hosts that provide empty
 
 ## Design Variables 
 
+### Whether to reify the `referrer`
+
+As written, we've avoided threading a `referrer` argument into the `Module`
+constructor because the `importMeta` is sufficient for carrying information
+about the referrer.
+This is okay so long as `import.meta` and `importMeta` are different objects,
+because a module should not be able to alter its own referrer over the course
+of its evaluation.
+Having `import.meta !== importMeta` is a topic of some confusion.
+If these were made identical, we would need to thread `referrer` separately.
+
+### Relationship to Content-Security-Policy
+
+On hosts that implement a Content-Security-Policy, the [[Origin]] is
+host-specific [[HostData]] of a module source.
+A module source constructed from a trusted types object could also
+inherit an origin.
+All of this can occur outside the purview of ECMA-262 and
+is orthogonal to the `Module` referrer, which can be different than the origin.
+
 ### The name of module instances
 
 `Module` instance and `ModuleInstance` instance are both contenders
@@ -367,6 +387,13 @@ prototype to get a promise for the module's exports namespace instead of
 overloading dynamic `import`.
 Using dynamic import is consistent with an interpretation of the module blocks
 proposal where module blocks evaluate to `Module` instances.
+
+### Options bag or flat arguments
+
+The options bag described here for the `Module` constructor leaves some
+room open for accounting for import assertions.
+It also raises questions about the default import hook and import meta,
+which are answerable but have not yet been fully discussed.
 
 [module-blocks]: https://github.com/tc39/proposal-js-module-blocks
 [trusted-types]: https://w3c.github.io/webappsec-trusted-types/dist/spec/

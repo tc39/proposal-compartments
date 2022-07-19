@@ -821,6 +821,22 @@ await compartment.load('./thenable.js');
 const thenableNamespace = compartment.importNow('./thenable.js');
 ```
 
+## Design Questions
+
+### User code or native code
+
+There are some reasons to make native Compartments that are not fully addressed
+by the lower-level primtiives out of which they can be implemented in user
+code.
+
+1. A native implementation may be able to avoid reifying some intermediate
+   objects, which may be important for embedded systems.
+2. A higher-level API will be more approachable to a more casual user.
+3. The runtime for a bundler in a web page might be considerably lighter in
+   terms of Compartment than it might be in terms of the consitituent objects.
+   Bundler runtimes need to be as small as possible to meet the needs of
+   webpage delivery performance.
+
 [browserify]: https://browserify.org/
 [import-map]: https://github.com/WICG/import-maps
 [lava-moat]: https://github.com/LavaMoat/LavaMoat
