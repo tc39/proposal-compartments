@@ -1,0 +1,399 @@
+# First-class Module and ModuleSource
+
+## Synopsis
+
+Provide first-class `Module` and `ModuleSource` constructors and extend dynamic
+import to operate on `Module` instances.
+
+A `ModuleSource` represents the result of compiling EcmaScript module source
+text.
+A `Module` instance represents the lifecycle of a EcmaScript module and allows
+virtual import behavior.
+Multiple `Module` instances can share a common `ModuleSource`.
+
+## Interfaces
+
+### ModuleSource
+
+```ts
+interface ModuleSource {
+  constructor(source: string);
+}
+```
+
+Semantics: A `ModuleSource` instance gives the holder no powers.
+It represents a compiled EcmaScript module and does not capture any information
+beyond what can be inferred from a module's source text.
+Import specifiers in a module's source text cannot be interpreted without
+further information.
+
+Note 1: `ModuleSource` does for modules what `eval` already does for scripts.
+We expect content security policies to treat module sources similarly.
+A `ModuleSource` instance constructed from text would not have an associated
+origin.
+A `ModuleSource` instance can be constructed from vetted text ([W3C Trusted
+Types][trusted-types]) and host-defined import hooks may reveal module sources
+that were vetted behind the scenes.
+
+Note 2: Multiple `Module` instances can be constructed from a single `ModuleSource`,
+producing one exports namespaces for each imported `Module` instance.
+
+Note 3: The internal record of a `ModuleSource` instance is immutable and
+serializable.
+This data can be shared without cost between realms of an agent or even agents
+of an agent cluster.
+
+### Module instances
+
+```ts
+type ImportSpecifier = string;
+
+type ImportHook = (specifier: ImportSpecifier, importMeta: object) =>
+  Promise<Module>;
+
+interface Module {
+  constructor(
+    source: ModuleSource,
+    options: {
+      importHook?: ImportHook,
+      importMeta?: object,
+    },
+  );
+
+  readonly source: ModuleSource,
+}
+```
+
+Semantics: A `Module` has a 1-1-1-1 relationship with a ***Module Environment
+Record***, a ***Module Record*** and a ***module namespace exotic object***.
+
+The module has a lifecycle and fresh instances have not been linked,
+initialized, or executed.
+
+Invoking dynamic import on a `Module` instance advances it and its transitive
+dependencies to their end state.
+Consistent with dynamic import for a stringly-named module,
+dynamic import on a `Module` instance produces a promise for the corresponding
+***Module Namespace Object***
+
+Dynamic import induces calls to `importHook` for each unsatisfied dependency of
+each module instance in separate events, before any dependency advances to the
+link phase of its lifecycle.
+
+Dynamic import within the evaluation of a `Module` also invokes the
+`importHook`.
+
+`Module` instances memoize the result of their `importHook` keyed on the given
+Import Specifier.
+
+`Module` constructors, like `Function` constructors, are bound to a realm
+and evaluate modules in their particular realm.
+
+## Examples
+
+### Import Kicker
+
+Any dynamic import function is suitable for initializing, linking, and
+evaluating a module instance.
+This necessarily implies advancing all of its transitive dependencies to their
+terminal state or any one into a failed state.
+
+```js
+const source = new ModuleSource(``);
+const instance = new Module(source, {
+  importHook,
+  importMeta: import.meta,
+});
+const namespace = await import(instance);
+```
+
+### Module Idempotency
+
+Since the Module has a bound module namespace exotic object, importing the same
+instance must yield the same result:
+
+```js
+const source = new ModuleSource(``);
+const instance = new Module(source, {
+  importHook,
+  importMeta: import.meta,
+});
+const namespace1 = await import(instance);
+const namespace2 = await import(instance);
+namespace1 === namespace2; // true
+```
+
+### Reusing ModuleSource
+
+Module sources are backed by a shared immutable module source record
+that can be instantiated multiple times, even locally.
+Multiple `Module` instances can share a module source and produce
+separate module namespaces.
+
+```js
+const source = new ModuleSource(``);
+const instance1 = new Module(source, {
+  importHook: importHook1,
+  importMeta: import.meta,
+});
+const instance2 = new Module(source, {
+  importHook: importHook2,
+  importMeta: import.meta,
+}));
+instance1 === instance2; // false
+const namespace1 = await import(instance1);
+const namespace2 = await import(instance2);
+namespace1 === namespace2; // false
+```
+
+### Intersection Semantics with Module Blocks
+
+Proposal: https://github.com/tc39/proposal-js-module-blocks
+
+In relation to module blocks, we can extend the proposal to accommodate both,
+the concept of a module block instance and module block source:
+
+```js
+const instance = module {};
+instance instanceof Module;
+instance.source instanceof ModuleSource;
+const namespace = await import(instance);
+```
+
+To avoid needing a throw-away module-instance in order to get a module source,
+we can extend the syntax:
+
+```js
+const source = static module {};
+source instanceof ModuleSource;
+const instance = new Module(source, {
+  importHook,
+  importMeta: import.meta,
+});
+const namespace = await import(instance);
+```
+
+### Intersection Semantics with deferred execution
+
+The possibility to load the source, and create the instance with the default
+`importHook` and the `import.meta` of the importer, that can be imported at any
+given time, is sufficient:
+
+```js
+import instance from 'module.js' deferred execution syntax;
+instance instanceof Module;
+instance.source instanceof ModuleSource;
+const namespace = await import(instance);
+```
+
+If the goal is to also control the `importHook` and the `importMeta` of the
+importer, then a new syntax can be provided to only get the `ModuleSource`:
+
+```ts
+import source from 'module.js' static source syntax;
+source instanceof ModuleSource;
+const instance = new Module(source, {
+  importHook,
+  importMeta: import.meta,
+});
+const namespace = await import(instance);
+```
+
+This is important, because it is analogous to block modules, but instead of
+inline source, it is a source that must be fetched.
+
+### Intersection Semantics with import.meta.resolve()
+
+Proposal: https://github.com/whatwg/html/pull/5572
+
+```ts
+const importHook = async (specifier, importMeta) => {
+  const url = importMeta.resolve(specifier);
+  const response = await fetch(url);
+  const sourceText = await response.text();
+  const source = new ModuleSource(sourceText);
+  return new Module(source, {
+    importHook,
+    importMeta: createCustomImportMeta(url),
+  });
+}
+
+const source = new ModuleSource(`export foo from './foo.js'`);
+const instance = new Module(source, {
+  importHook,
+  importMeta: import.meta,
+});
+const namespace = await import(instance);
+```
+
+In the example above, we re-use the `ImportHook` declaration for two instances,
+the `source`, and the corresponding dependency for specifier `./foo.js`. When
+the kicker `import(instance)` is executed, the `importHook` will be invoked
+once with the `specifier` argument as `./foo.js`, and the `meta` argument with
+the value of the `import.meta` associated to the kicker itself. As a result,
+the `specifier` can be resolved based on the provided `meta` to calculate the
+`url`, fetch the source, and create a new `Module` for the new source. This new
+instance opts to reuse the same `importHook` function while constructing the
+`meta` object. It is important to notice that the `meta` object has two
+purposes, to be referenced by syntax in the source text (via `import.meta`) and
+to be passed to the `importHook` for any dependencies of `./foo.js` itself.
+
+## Design
+
+A ***Module Source Record*** is an abstract class for immutable representations
+of the dependencies, bindings, initialization, and execution behavior of a
+module.
+
+Host-defined import-hooks may specialize module source records with annotations
+such that the host can enforce content-security-policies.
+
+A ***EcmaScript Module Source Record*** is a concrete ***Module Source
+Record*** for EcmaScript modules.
+
+`ModuleSource` is a constructor that accepts EcmaScript module source text and
+produces an object with a [[ModuleSource]] slot referring to an ***EcmaScript
+Module Source Record***.
+
+`ModuleSource` instances are handles on the result of compiling a EcmaScript
+module's source text.
+A module source has a [[ModuleSource]] internal slot that refers to a
+***Module Source Record***.
+Multiple `Module` instances can share a common module source.
+
+Module source records only capture information that can be inferred from static
+analysis of the module's source text.
+
+Multiple `ModuleSource` instances can share a common ***Module Source Record***
+since these are immutable and so hosts have the option of sharing them between
+realms of an agent and even agents of an agent cluster.
+
+The `Module` constructor accepts a source and  
+A `Module` has a 1-1-1-1 relationship with a ***Module Environment Record***,
+a ***Module Source Record***, and a ***Module Exports Namespace Exotic Object***.
+
+## Design Rationales
+
+### Should `importHook` be synchronous or asynchronous?
+
+When a source module imports from a module specifier, you might not have the
+source at hand to create the corresponding `Module` to be returned. If
+`importHook` is synchronous, then you must have the source ready when the
+`importHook` is invoked for each dependency.
+
+Since the `importHook` is only triggered via the kicker (`import(instance)`),
+going async there has no implications whatsoever.
+In prior iterations of this, the user was responsible for loop thru the
+dependencies, and prepare the instance before kicking the next phase, that's
+not longer the case here, where the level of control on the different phases is
+limited to the invocation of the `importHook`.
+
+### Can cycles be represented?
+
+Yes, `importHook` can return a `Module` that was either `import()` already or
+was returned by an `importHook` already.
+
+### Idempotency of dynamic imports in ModuleSource
+
+Any `import()` statement inside a module source will result of a possible
+`importHook` invocation on the `Module`, and the decision on whether or not to
+call the `importHook` depends on whether or not the `Module` has already
+invoked it for the `specifier` in question. So, a `Module`
+most keep a map for every `specifier` and its corresponding `Module` to
+guarantee the idempotency of those static and dynamic import statements.
+
+User-defined and host-defined import-hooks will likely enforce stronger
+consistency between import behavior across module instances, but module
+instances enforce local consistency and some consistency in aggregate by
+induction of other modules.
+
+### toString
+
+Whether `ModduleSource` instances retain the original source may vary by host
+and modules should reuse
+[HostHasSourceTextAvailable](https://tc39.es/ecma262/#sec-hosthassourcetextavailable)
+in deciding whether to reveal their source, as they might with a `toString`
+method.
+The [module block][module-blocks] proposal may necessitate the retention of
+text on certain hosts so that hosts can transmit use sources in their serial
+representation of a module, as could be an extension to `structuredClone`.
+
+### Factoring ECMA-262
+
+This proposal decouples a new ***Module Source Record*** and ***EcmaScript
+Module Source Record*** from the existing ***Module Record*** class hierarchy
+and introduces a concrete ***Virtual Module Record***.
+The hope if not expectation is that this refactoring makes evident that
+***Virtual Module Record***, ***Cyclic Module Record***, and the abstract
+base class ***Module Record*** could be refactored into a single concrete
+record (***Module Record***) since all meaningful variation can be expressed
+with implementations of the abstract ***Module Source Record***.
+But, this proposal does not go so far as to make that refactoring normative.
+
+This proposal does not impose on host-defined import behavior.
+
+### Referrer Specifier
+
+This proposal expressly avoids specifying a module referrer.
+We are convinced that the `importMeta` object passed to the `Module`
+constructor is sufficient to denote (have a host-specific referrer property
+like `url` or a method like `resolve`) or connote (serve as a key in a `WeakMap`
+side table) since the import behavior carries that exact object to the
+`importHook`, regardless of whether `import.meta` is identical to `importMeta`.
+This allows us virtual modules to emulate even hosts that provide empty
+`import.meta` objects.
+
+## Design Variables 
+
+### Whether to reify the `referrer`
+
+As written, we've avoided threading a `referrer` argument into the `Module`
+constructor because the `importMeta` is sufficient for carrying information
+about the referrer.
+This is okay so long as `import.meta` and `importMeta` are different objects,
+because a module should not be able to alter its own referrer over the course
+of its evaluation.
+Having `import.meta !== importMeta` is a topic of some confusion.
+If these were made identical, we would need to thread `referrer` separately.
+
+### Relationship to Content-Security-Policy
+
+On hosts that implement a Content-Security-Policy, the [[Origin]] is
+host-specific [[HostData]] of a module source.
+A module source constructed from a trusted types object could also
+inherit an origin.
+All of this can occur outside the purview of ECMA-262 and
+is orthogonal to the `Module` referrer, which can be different than the origin.
+
+### The name of module instances
+
+`Module` instance and `ModuleInstance` instance are both contenders
+for the name of module instances.
+We are tentatively entertaining `Module` because it feels likely that we arrive
+in a world where `(module {}) instanceof Module`.
+The naming calculus would shift significantly if module blocks are reified as
+module source instead of module instance.
+
+We will no doubt arrive in a state of confusion with anything named "module"
+without qualification.
+For example, `WebAssembly.Module` more closely resembles a module source than a
+module instance.
+That would suggest module source should also be `Module`, and consequently
+`ModuleInstance`.
+
+### Form of the kicker method
+
+A functionally equivalent proposal would add an `import` method to the `Module`
+prototype to get a promise for the module's exports namespace instead of
+overloading dynamic `import`.
+Using dynamic import is consistent with an interpretation of the module blocks
+proposal where module blocks evaluate to `Module` instances.
+
+### Options bag or flat arguments
+
+The options bag described here for the `Module` constructor leaves some
+room open for accounting for import assertions.
+It also raises questions about the default import hook and import meta,
+which are answerable but have not yet been fully discussed.
+
+[module-blocks]: https://github.com/tc39/proposal-js-module-blocks
+[trusted-types]: https://w3c.github.io/webappsec-trusted-types/dist/spec/
