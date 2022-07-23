@@ -3,7 +3,8 @@
   "name": "template-for-proposals",
   "description": "A repository template for ECMAScript proposals.",
   "scripts": {
-    "build": "ecmarkup spec.emu index.html"
+    "build": "ecmarkup spec.emu index.html",
+    "build-0": "ecmarkup --verbose 0-module-and-module-source.emu 0-module-and-module-source.html"
   },
   "homepage": "https://github.com/tc39/template-for-proposals#readme",
   "repository": {
@@ -12,6 +13,6 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "ecmarkup": "^3.11.5"
+    "ecmarkup": "^12.0.3"
   }
 }
