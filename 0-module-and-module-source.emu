@@ -178,32 +178,6 @@ location: https://tc39.es/proposal-compartments/
     </emu-clause>
 </emu-clause>
 
-<emu-clause id="sec-meta-properties-runtime-semantics-evaluation" type="sdo">
-    <h1>Runtime Semantics: Evaluation</h1>
-
-    <emu-grammar>ImportMeta : `import` `.` `meta`</emu-grammar>
-    <emu-alg>
-      1. Let _module_ be GetActiveScriptOrModule().
-      1. Assert: _module_ is a Source Text Module Record.
-      1. Let _importMeta_ be _module_.[[ImportMeta]].
-      1. If _importMeta_ is ~empty~, then
-        1. Set _importMeta_ to OrdinaryObjectCreate(*null*).
-        1. <ins>If _module_ has a [[ModuleInstance]] internal slot, then</ins>
-          1. <ins>Let _importMetaValues_ be _module_.[[ModuleInstance]].[[ImportMetaValues]].</ins>
-        1. <ins>Else,</ins>
-          1. Let _importMetaValues_ be HostGetImportMetaProperties(_module_).
-        1. For each Record { [[Key]], [[Value]] } _p_ of _importMetaValues_, do
-          1. Perform ! CreateDataPropertyOrThrow(_importMeta_, _p_.[[Key]], _p_.[[Value]]).
-        1. Perform HostFinalizeImportMeta(_importMeta_, _module_).
-        1. Set _module_.[[ImportMeta]] to _importMeta_.
-        1. Return _importMeta_.
-      1. Else,
-        1. Assert: Type(_importMeta_) is Object.
-        1. Return _importMeta_.
-    </emu-alg>
-  </emu-clause>
-</emu-clause>
-
 <emu-clause id="sec-modulesource-objects">
     <h1>ModuleSource Objects</h1>
     <emu-clause id="sec-modulesource-abstracts">
@@ -498,26 +472,30 @@ location: https://tc39.es/proposal-compartments/
           </emu-clause>
 
 
-        <emu-clause id="sec-createimportmetavaluesrecord" type="abstract operation">
+        <emu-clause id="sec-createcustomimportmeta" type="abstract operation">
             <h1>
-                CreateImportMetaValuesRecord (
-                    _importMeta_: An object,
-                ): a List of Records with fields [[Key]] (a property key) and [[Value]] (an ECMAScript language value)
+                CreateCustomImportMeta (
+                    _module_: A Module Record,
+                    _meta_: An object,
+                ): ~unused~
             </h1>
             <dl class="header">
               <dt>description</dt>
               <dd>From a given _importMeta_, this abstract operation creates a List of Records for the qualifying values that must be present when a module body accesses import.meta syntax.</dd>
             </dl>
             <emu-alg>
-                1. Let _list_ be a new List.
-                1. Let _from_ be ! ToObject(_importMeta_).
+                1. Assert: _meta_ is an Object.
+                1. Assert: _module_ is a Module Record.
+                1. Assert: _module_.[[ImportMeta]] is ~empty~.
+                1. Let _importMeta_ to OrdinaryObjectCreate(*null*).
                 1. Let _keys_ be ? <emu-meta effects="user-code">_from_.[[OwnPropertyKeys]]()</emu-meta>.
                 1. For each element _nextKey_ of _keys_, do
                   1. Let _desc_ be ? <emu-meta effects="user-code">_from_.[[GetOwnProperty]]</emu-meta>(_nextKey_).
                   1. If _desc_ is not *undefined* and _desc_.[[Enumerable]] is *true*, then
                     1. Let _nextValue_ be ? Get(_from_, _nextKey_).
-                    1. Append the Record { [[Key]]: _nextKey_, [[Value]]: _nextValue_ } to the _list_ List.
-                1. Return _list_.
+                    1. Perform ! CreateDataPropertyOrThrow(_importMeta_, _nextKey_,_nextValue_).
+                1. Perform HostFinalizeImportMeta(_importMeta_, _module_).
+                1. Set _module_.[[ImportMeta]] to _importMeta_.
             </emu-alg>
         </emu-clause>
     </emu-clause>
@@ -543,14 +521,14 @@ location: https://tc39.es/proposal-compartments/
                 1. If IsCallable(_importHook_) is *false*, throw a *TypeError* exception.
                 1. Perform ? RequireInternalSlot(_moduleSource_, [[ModuleSource]]).
                 1. Let _P_ be MakeBasicObject(&laquo; [[ImportHook]], [[ImportMeta]] &raquo;).
-                1. Let _O_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%Module.prototype%"*, « [[Module]], [[ModuleSourceInstance]], [[CustomImportHook]], [[CustomImportMeta]], [[ImportMetaValues]] »).
+                1. Let _O_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%Module.prototype%"*, « [[Module]], [[ModuleSourceInstance]], [[CustomImportHook]], [[CustomImportMeta]] »).
                 1. Let _moduleRecord_ to ! CreateModuleRecord(_moduleSource_.[[ModuleSource]]).
                 1. Set _moduleRecord_.[[ModuleInstance]] to _O_.
                 1. Set _O_.[[Module]] to _moduleRecord_.
                 1. Set _O_.[[ModuleSourceInstance]] to _moduleSource_.
                 1. Set _O_.[[CustomImportHook]] to _importHook_.
                 1. Set _O_.[[CustomImportMeta]] to _importMeta_.
-                1. Set _O_.[[ImportMetaValues]] to ? CreateImportMetaValuesRecord(_importMeta_).
+                1. Perform ? CreateCustomImportMeta(_moduleRecord_, _importMeta_).
                 1. Return _O_.
             </emu-alg>
         </emu-clause>
@@ -629,11 +607,6 @@ location: https://tc39.es/proposal-compartments/
                         <td>[[CustomImportMeta]]</td>
                         <td>An Object</td>
                         <td>A value passed as second argument when calling the [[CustomImportHook]].</td>
-                    </tr>
-                    <tr>
-                        <td>[[ImportMetaValues]]</td>
-                        <td>a List of Records with fields [[Key]] (a property key) and [[Value]] (an ECMAScript language value)</td>
-                        <td>A List of Records used to reify the value accessible via import.meta syntax.</td>
                     </tr>
                 </tbody>
             </table>
