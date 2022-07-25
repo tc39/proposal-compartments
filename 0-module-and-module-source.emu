@@ -353,8 +353,7 @@ location: https://tc39.es/proposal-compartments/
               1. Assert: ResolveModuleRecordDependency has not been invoked with _moduleRecord_ and _specifier_ pair.
               1. Let _moduleInstance_ be _moduleRecord_.[[ModuleInstance]].
               1. Let _importHook_ be _moduleInstance_.[[CustomImportHook]].
-              1. Let _importMeta_ be _moduleInstance_.[[CustomImportMeta]].
-              1. Let _completion_ be Completion(Call(_importHook_, *undefined*, « _specifier_, _importMeta_ »).
+              1. Let _completion_ be Completion(Call(_importHook_, *undefined*, « _specifier_ »).
               1. IfAbruptRejectPromise(_completion_, _promiseCapability_).
               1. Let _importHookPromise_ be ? PromiseResolve(%Promise%, _completion_.[[Value]]).
               1. Let _fulfilledClosure_ be a new Abstract Closure with parameters (_result_) that captures _moduleRecord_ and _promiseCapability_ and performs the following steps when called
@@ -521,13 +520,15 @@ location: https://tc39.es/proposal-compartments/
                 1. If IsCallable(_importHook_) is *false*, throw a *TypeError* exception.
                 1. Perform ? RequireInternalSlot(_moduleSource_, [[ModuleSource]]).
                 1. Let _P_ be MakeBasicObject(&laquo; [[ImportHook]], [[ImportMeta]] &raquo;).
-                1. Let _O_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%Module.prototype%"*, « [[Module]], [[ModuleSourceInstance]], [[CustomImportHook]], [[CustomImportMeta]] »).
+                1. Let _O_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%Module.prototype%"*, « [[Module]], [[ModuleSourceInstance]], [[CustomImportHook]] »).
                 1. Let _moduleRecord_ to ! CreateModuleRecord(_moduleSource_.[[ModuleSource]]).
                 1. Set _moduleRecord_.[[ModuleInstance]] to _O_.
+                1. Let _importHookClosure_ be a new Abstract Closure with parameters (_specifier_) that captures _importHook_ and _importMeta_ and performs the following steps when called
+                  1. Assert: Type(_specifier_) is String.
+                  1. return ? Call(_importHook_, *undefined*, « _specifier_, _importMeta_ »).
                 1. Set _O_.[[Module]] to _moduleRecord_.
                 1. Set _O_.[[ModuleSourceInstance]] to _moduleSource_.
-                1. Set _O_.[[CustomImportHook]] to _importHook_.
-                1. Set _O_.[[CustomImportMeta]] to _importMeta_.
+                1. Set _O_.[[CustomImportHook]] be CreateBuiltinFunction(_importHookClosure_, 0, *""*, &laquo; &raquo;).
                 1. Perform ? CreateCustomImportMeta(_moduleRecord_, _importMeta_).
                 1. Return _O_.
             </emu-alg>
@@ -602,11 +603,6 @@ location: https://tc39.es/proposal-compartments/
                         <td>[[CustomImportHook]]</td>
                         <td>a callable Object</td>
                         <td>The callable Object associated to the [[Module]] record to resolve module dependencies.</td>
-                    </tr>
-                    <tr>
-                        <td>[[CustomImportMeta]]</td>
-                        <td>An Object</td>
-                        <td>A value passed as second argument when calling the [[CustomImportHook]].</td>
                     </tr>
                 </tbody>
             </table>
