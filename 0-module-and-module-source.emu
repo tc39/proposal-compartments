@@ -18,572 +18,627 @@ location: https://tc39.es/proposal-compartments/
 </pre>
 
 <emu-clause id="sec-well-known-intrinsic-objects">
-	<h1>Well-known intrinsic objects</h1>
-	<emu-table id="table-7" caption="Well-known Intrinsic Objects">
-		<table>
-			<tbody>
-				<tr>
-					<th>Intrinsic Name</th>
-					<th>Global Name</th>
-					<th>ECMAScript Language Association</th>
-				</tr>
-				<tr>
-					<td>%ModuleSource%</td>
-					<td>`ModuleSource`</td>
-					<td>The ModuleSource constructor (<emu-xref href="#sec-modulesource-constructor"></emu-xref>)</td>
-				</tr>
-				<tr>
-					<td>%Module%</td>
-					<td>`Module`</td>
-					<td>The Module constructor (<emu-xref href="#sec-module-constructor"></emu-xref>)</td>
-				</tr>
-			</tbody>
-		</table>
-	</emu-table>
+    <h1>Well-known intrinsic objects</h1>
+    <emu-table id="table-7" caption="Well-known Intrinsic Objects">
+        <table>
+            <tbody>
+                <tr>
+                    <th>Intrinsic Name</th>
+                    <th>Global Name</th>
+                    <th>ECMAScript Language Association</th>
+                </tr>
+                <tr>
+                    <td>%ModuleSource%</td>
+                    <td>`ModuleSource`</td>
+                    <td>The ModuleSource constructor (<emu-xref href="#sec-modulesource-constructor"></emu-xref>)</td>
+                </tr>
+                <tr>
+                    <td>%Module%</td>
+                    <td>`Module`</td>
+                    <td>The Module constructor (<emu-xref href="#sec-module-constructor"></emu-xref>)</td>
+                </tr>
+            </tbody>
+        </table>
+    </emu-table>
 </emu-clause>
 
 <emu-clause id="sec-modulesource-records">
-	<h1>Module Source Records</h1>
+    <h1>Module Source Records</h1>
 
-	<p>A <dfn id="modulesource-record" variants="Module Source Records">Module Source Record</dfn> is used to represent information about a module source that was defined from ECMAScript source text (<emu-xref href="#sec-ecmascript-language-source-code"></emu-xref>) that was parsed using the goal symbol |Module|. Its fields contain digested information about the names that are imported and exported by the module.</p>
+    <p>A <dfn id="modulesource-record" variants="Module Source Records">Module Source Record</dfn> is used to represent information about a module source that was defined from ECMAScript source text (<emu-xref href="#sec-ecmascript-language-source-code"></emu-xref>) that was parsed using the goal symbol |Module|. Its fields contain digested information about the names that are imported and exported by the module.</p>
 
-	<p>Module Source Records have the fields listed in <emu-xref href="#table-fields-of-module-source-records"></emu-xref>. Each of these fields is initially set in ParseModuleSource.</p>
-	<emu-table id="table-fields-of-module-source-records" caption="Fields of Module Source Records">
-	  <table>
-		<tr>
-		  <th>
-			Field Name
-		  </th>
-		  <th>
-			Value Type
-		  </th>
-		  <th>
-			Meaning
-		  </th>
-		</tr>
-		<tr>
-		  <td>
-			[[ECMAScriptCode]]
-		  </td>
-		  <td>
-			a Parse Node
-		  </td>
-		  <td>
-			The result of parsing the source text of this module using |Module| as the goal symbol.
-		  </td>
-		</tr>
-		<tr>
-		  <td>
-			[[ImportEntries]]
-		  </td>
-		  <td>
-			a List of ImportEntry Records
-		  </td>
-		  <td>
-			A List of ImportEntry records derived from the code of this module source.
-		  </td>
-		</tr>
-		<tr>
-		  <td>
-			[[LocalExportEntries]]
-		  </td>
-		  <td>
-			a List of ExportEntry Records
-		  </td>
-		  <td>
-			A List of ExportEntry records derived from the code of this module that correspond to declarations that occur within the module source.
-		  </td>
-		</tr>
-		<tr>
-		  <td>
-			[[IndirectExportEntries]]
-		  </td>
-		  <td>
-			a List of ExportEntry Records
-		  </td>
-		  <td>
-			A List of ExportEntry records derived from the code of this module source that correspond to reexported imports that occur within the module or exports from `export * as namespace` declarations.
-		  </td>
-		</tr>
-		<tr>
-		  <td>
-			[[StarExportEntries]]
-		  </td>
-		  <td>
-			a List of ExportEntry Records
-		  </td>
-		  <td>
-			A List of ExportEntry records derived from the code of this module source that correspond to `export *` declarations that occur within the module, not including `export * as namespace` declarations.
-		  </td>
-		</tr>
-		<tr>
-			<td>
-			  [[HasTLA]]
-			</td>
-			<td>
-			  a Boolean
-			</td>
-			<td>
-			  Whether this module source is individually asynchronous. Having an asynchronous dependency does not mean this field is *true*.
-			</td>
-		</tr>
-		<tr>
-			<td>
-			  [[RequestedModules]]
-			</td>
-			<td>
-			  a List of Strings
-			</td>
-			<td>
-			  A List of all the |ModuleSpecifier| strings used by the module source represented by this record to request the importation of a module. The List is source text occurrence ordered.
-			</td>
-		</tr>
-		<tr>
-			<td>
-			  [[HostDefined]]
-			</td>
-			<td>
-			  anything (default value is *undefined*)
-			</td>
-			<td>
-			  Field reserved for use by host environments that need to associate additional information with a module source.
-			</td>
-		  </tr>
-	  </table>
-	</emu-table>
+    <p>Module Source Records have the fields listed in <emu-xref href="#table-fields-of-module-source-records"></emu-xref>. Each of these fields is initially set in ParseModuleSource.</p>
+    <emu-table id="table-fields-of-module-source-records" caption="Fields of Module Source Records">
+      <table>
+        <tr>
+          <th>
+            Field Name
+          </th>
+          <th>
+            Value Type
+          </th>
+          <th>
+            Meaning
+          </th>
+        </tr>
+        <tr>
+          <td>
+            [[ECMAScriptCode]]
+          </td>
+          <td>
+            a Parse Node
+          </td>
+          <td>
+            The result of parsing the source text of this module using |Module| as the goal symbol.
+          </td>
+        </tr>
+        <tr>
+          <td>
+            [[ImportEntries]]
+          </td>
+          <td>
+            a List of ImportEntry Records
+          </td>
+          <td>
+            A List of ImportEntry records derived from the code of this module source.
+          </td>
+        </tr>
+        <tr>
+          <td>
+            [[LocalExportEntries]]
+          </td>
+          <td>
+            a List of ExportEntry Records
+          </td>
+          <td>
+            A List of ExportEntry records derived from the code of this module that correspond to declarations that occur within the module source.
+          </td>
+        </tr>
+        <tr>
+          <td>
+            [[IndirectExportEntries]]
+          </td>
+          <td>
+            a List of ExportEntry Records
+          </td>
+          <td>
+            A List of ExportEntry records derived from the code of this module source that correspond to reexported imports that occur within the module or exports from `export * as namespace` declarations.
+          </td>
+        </tr>
+        <tr>
+          <td>
+            [[StarExportEntries]]
+          </td>
+          <td>
+            a List of ExportEntry Records
+          </td>
+          <td>
+            A List of ExportEntry records derived from the code of this module source that correspond to `export *` declarations that occur within the module, not including `export * as namespace` declarations.
+          </td>
+        </tr>
+        <tr>
+            <td>
+              [[HasTLA]]
+            </td>
+            <td>
+              a Boolean
+            </td>
+            <td>
+              Whether this module source is individually asynchronous. Having an asynchronous dependency does not mean this field is *true*.
+            </td>
+        </tr>
+        <tr>
+            <td>
+              [[RequestedModules]]
+            </td>
+            <td>
+              a List of Strings
+            </td>
+            <td>
+              A List of all the |ModuleSpecifier| strings used by the module source represented by this record to request the importation of a module. The List is source text occurrence ordered.
+            </td>
+        </tr>
+        <tr>
+            <td>
+              [[HostDefined]]
+            </td>
+            <td>
+              anything (default value is *undefined*)
+            </td>
+            <td>
+              Field reserved for use by host environments that need to associate additional information with a module source.
+            </td>
+          </tr>
+      </table>
+    </emu-table>
 </emu-clause>
 
 <emu-clause id="sec-import-calls">
-	<h1>Import Calls</h1>
+    <h1>Import Calls</h1>
 
-	<emu-clause id="sec-import-call-runtime-semantics-evaluation" type="sdo">
-	  <h1>Runtime Semantics: Evaluation</h1>
+    <emu-clause id="sec-import-call-runtime-semantics-evaluation" type="sdo">
+      <h1>Runtime Semantics: Evaluation</h1>
 
-	  <emu-grammar>ImportCall : `import` `(` AssignmentExpression `)`</emu-grammar>
-	  <emu-alg>
-		1. Let _referencingScriptOrModule_ be GetActiveScriptOrModule().
-		1. Let _argRef_ be the result of evaluating |AssignmentExpression|.
-		1. <del>Let _specifier_ be ? GetValue(_argRef_).</del>
-		1. <ins>Let _specifierOrModule_ be ? GetValue(_argRef_).</ins>
-		1. Let _promiseCapability_ be ! NewPromiseCapability(%Promise%).
-		1. <ins>If Type(_specifierOrModule_) is Object that has a [[ModuleSourceInstance]] internal slot, then</ins>
-			1. <ins>Let _moduleRecord_ be _specifierOrModule_.[[Module]].</ins>
-			1. <ins>Perform HostImportModuleRecordDynamically(_moduleRecord_, _promiseCapability_).</ins>
-		1. <ins>Else,</ins>
-			1. Let _specifierString_ be Completion(ToString(_specifierOrModule_)).
-			1. IfAbruptRejectPromise(_specifierString_, _promiseCapability_).
-			1. Perform HostImportModuleDynamically(_referencingScriptOrModule_, _specifierString_, _promiseCapability_).
-		1. Return _promiseCapability_.[[Promise]].
-	  </emu-alg>
-	</emu-clause>
+      <emu-grammar>ImportCall : `import` `(` AssignmentExpression `)`</emu-grammar>
+      <emu-alg>
+        1. Let _referencingScriptOrModule_ be GetActiveScriptOrModule().
+        1. Let _argRef_ be the result of evaluating |AssignmentExpression|.
+        1. <del>Let _specifier_ be ? GetValue(_argRef_).</del>
+        1. <ins>Let _specifierOrModule_ be ? GetValue(_argRef_).</ins>
+        1. Let _promiseCapability_ be ! NewPromiseCapability(%Promise%).
+        1. <ins>If Type(_specifierOrModule_) is Object that has a [[ModuleSourceInstance]] internal slot, then</ins>
+          1. <ins>Let _moduleRecord_ be _specifierOrModule_.[[Module]].</ins>
+          1. <ins>Perform HostImportModuleRecordDynamically(_moduleRecord_, _promiseCapability_).</ins>
+        1. <ins>Else,</ins>
+          1. Let _specifierString_ be Completion(ToString(_specifierOrModule_)).
+          1. IfAbruptRejectPromise(_specifierString_, _promiseCapability_).
+          1. Perform HostImportModuleDynamically(_referencingScriptOrModule_, _specifierString_, _promiseCapability_).
+        1. Return _promiseCapability_.[[Promise]].
+      </emu-alg>
+    </emu-clause>
+</emu-clause>
+
+<emu-clause id="sec-meta-properties-runtime-semantics-evaluation" type="sdo">
+    <h1>Runtime Semantics: Evaluation</h1>
+
+    <emu-grammar>ImportMeta : `import` `.` `meta`</emu-grammar>
+    <emu-alg>
+      1. Let _module_ be GetActiveScriptOrModule().
+      1. Assert: _module_ is a Source Text Module Record.
+      1. Let _importMeta_ be _module_.[[ImportMeta]].
+      1. If _importMeta_ is ~empty~, then
+        1. Set _importMeta_ to OrdinaryObjectCreate(*null*).
+        1. <ins>If _module_ has a [[ModuleInstance]] internal slot, then</ins>
+          1. <ins>Let _importMetaValues_ be _module_.[[ModuleInstance]].[[ImportMetaValues]].</ins>
+        1. <ins>Else,</ins>
+          1. Let _importMetaValues_ be HostGetImportMetaProperties(_module_).
+        1. For each Record { [[Key]], [[Value]] } _p_ of _importMetaValues_, do
+          1. Perform ! CreateDataPropertyOrThrow(_importMeta_, _p_.[[Key]], _p_.[[Value]]).
+        1. Perform HostFinalizeImportMeta(_importMeta_, _module_).
+        1. Set _module_.[[ImportMeta]] to _importMeta_.
+        1. Return _importMeta_.
+      1. Else,
+        1. Assert: Type(_importMeta_) is Object.
+        1. Return _importMeta_.
+    </emu-alg>
+  </emu-clause>
 </emu-clause>
 
 <emu-clause id="sec-modulesource-objects">
-	<h1>ModuleSource Objects</h1>
-	<emu-clause id="sec-modulesource-abstracts">
-		<h1>ModuleSource Abstract Operations</h1>
+    <h1>ModuleSource Objects</h1>
+    <emu-clause id="sec-modulesource-abstracts">
+        <h1>ModuleSource Abstract Operations</h1>
 
         <emu-clause id="sec-parsemodulesource" type="abstract operation">
-			<h1>
-			  ParseModuleSource (
-				_sourceText_: ECMAScript source text,
-			  ): a Module Source Record or throw a *SyntaxError* object
-			</h1>
-			<dl class="header">
-			  <dt>description</dt>
-			  <dd>It creates a Module Source Record based upon the result of parsing _sourceText_ as a |Module|.</dd>
-			</dl>
-			<emu-alg>
-			  1. Let _body_ be ParseText(_sourceText_, |Module|).
-			  1. If _body_ is a List of errors, throw a *SyntaxError* exception.
-			  1. Let _requestedModules_ be the ModuleRequests of _body_.
-			  1. Let _importEntries_ be ImportEntries of _body_.
-			  1. Let _importedBoundNames_ be ImportedLocalNames(_importEntries_).
-			  1. Let _indirectExportEntries_ be a new empty List.
-			  1. Let _localExportEntries_ be a new empty List.
-			  1. Let _starExportEntries_ be a new empty List.
-			  1. Let _exportEntries_ be ExportEntries of _body_.
-			  1. For each ExportEntry Record _ee_ of _exportEntries_, do
-				1. If _ee_.[[ModuleRequest]] is *null*, then
-				  1. If _ee_.[[LocalName]] is not an element of _importedBoundNames_, then
-					1. Append _ee_ to _localExportEntries_.
-				  1. Else,
-					1. Let _ie_ be the element of _importEntries_ whose [[LocalName]] is the same as _ee_.[[LocalName]].
-					1. If _ie_.[[ImportName]] is ~namespace-object~, then
-					  1. NOTE: This is a re-export of an imported module namespace object.
-					  1. Append _ee_ to _localExportEntries_.
-					1. Else,
-					  1. NOTE: This is a re-export of a single name.
-					  1. Append the ExportEntry Record { [[ModuleRequest]]: _ie_.[[ModuleRequest]], [[ImportName]]: _ie_.[[ImportName]], [[LocalName]]: *null*, [[ExportName]]: _ee_.[[ExportName]] } to _indirectExportEntries_.
-				1. Else if _ee_.[[ImportName]] is ~all-but-default~, then
-				  1. Assert: _ee_.[[ExportName]] is *null*.
-				  1. Append _ee_ to _starExportEntries_.
-				1. Else,
-				  1. Append _ee_ to _indirectExportEntries_.
-			  1. Let _async_ be _body_ Contains `await`.
-			  1. NOTE: How should _hostDefined_ be populated if this operation is triggered by the user and whether or not _hostDefined_ should be used for sources created in user land.
-			  1. Let _hostDefined_ be *undefined*.
-			  1. Return Module Source Record { [[HasTLA]]: _async_, [[ECMAScriptCode]]: _body_, [[RequestedModules]]: _requestedModules_, [[ImportEntries]]: _importEntries_, [[LocalExportEntries]]: _localExportEntries_, [[IndirectExportEntries]]: _indirectExportEntries_, [[StarExportEntries]]: _starExportEntries_, [[HostDefined]]: _hostDefined_ }.
-			</emu-alg>
-		</emu-clause>
+            <h1>
+              ParseModuleSource (
+                _sourceText_: ECMAScript source text,
+              ): a Module Source Record or throw a *SyntaxError* object
+            </h1>
+            <dl class="header">
+              <dt>description</dt>
+              <dd>It creates a Module Source Record based upon the result of parsing _sourceText_ as a |Module|.</dd>
+            </dl>
+            <emu-alg>
+              1. Let _body_ be ParseText(_sourceText_, |Module|).
+              1. If _body_ is a List of errors, throw a *SyntaxError* exception.
+              1. Let _requestedModules_ be the ModuleRequests of _body_.
+              1. Let _importEntries_ be ImportEntries of _body_.
+              1. Let _importedBoundNames_ be ImportedLocalNames(_importEntries_).
+              1. Let _indirectExportEntries_ be a new empty List.
+              1. Let _localExportEntries_ be a new empty List.
+              1. Let _starExportEntries_ be a new empty List.
+              1. Let _exportEntries_ be ExportEntries of _body_.
+              1. For each ExportEntry Record _ee_ of _exportEntries_, do
+                1. If _ee_.[[ModuleRequest]] is *null*, then
+                  1. If _ee_.[[LocalName]] is not an element of _importedBoundNames_, then
+                    1. Append _ee_ to _localExportEntries_.
+                  1. Else,
+                    1. Let _ie_ be the element of _importEntries_ whose [[LocalName]] is the same as _ee_.[[LocalName]].
+                    1. If _ie_.[[ImportName]] is ~namespace-object~, then
+                      1. NOTE: This is a re-export of an imported module namespace object.
+                      1. Append _ee_ to _localExportEntries_.
+                    1. Else,
+                      1. NOTE: This is a re-export of a single name.
+                      1. Append the ExportEntry Record { [[ModuleRequest]]: _ie_.[[ModuleRequest]], [[ImportName]]: _ie_.[[ImportName]], [[LocalName]]: *null*, [[ExportName]]: _ee_.[[ExportName]] } to _indirectExportEntries_.
+                1. Else if _ee_.[[ImportName]] is ~all-but-default~, then
+                  1. Assert: _ee_.[[ExportName]] is *null*.
+                  1. Append _ee_ to _starExportEntries_.
+                1. Else,
+                  1. Append _ee_ to _indirectExportEntries_.
+              1. Let _async_ be _body_ Contains `await`.
+              1. NOTE: How should _hostDefined_ be populated if this operation is triggered by the user and whether or not _hostDefined_ should be used for sources created in user land.
+              1. Let _hostDefined_ be *undefined*.
+              1. Return Module Source Record { [[HasTLA]]: _async_, [[ECMAScriptCode]]: _body_, [[RequestedModules]]: _requestedModules_, [[ImportEntries]]: _importEntries_, [[LocalExportEntries]]: _localExportEntries_, [[IndirectExportEntries]]: _indirectExportEntries_, [[StarExportEntries]]: _starExportEntries_, [[HostDefined]]: _hostDefined_ }.
+            </emu-alg>
+        </emu-clause>
 
-	</emu-clause>
+    </emu-clause>
 
-	<emu-clause id="sec-modulesource-constructor">
-		<h1>The ModuleSource Constructor</h1>
-		<p>The ModuleSource constructor:</p>
-		<ul>
-			<li>is the intrinsic object <dfn>%ModuleSource%</dfn>.</li>
-			<li>is the initial value of the *"ModuleSource"* property of the global object.</li>
-			<li>is not intended to be called as a function and will throw an exception when called in that manner.</li>
-			<li>creates and initializes a new ModuleSource object when called as a constructor.</li>
-		</ul>
+    <emu-clause id="sec-modulesource-constructor">
+        <h1>The ModuleSource Constructor</h1>
+        <p>The ModuleSource constructor:</p>
+        <ul>
+            <li>is the intrinsic object <dfn>%ModuleSource%</dfn>.</li>
+            <li>is the initial value of the *"ModuleSource"* property of the global object.</li>
+            <li>is not intended to be called as a function and will throw an exception when called in that manner.</li>
+            <li>creates and initializes a new ModuleSource object when called as a constructor.</li>
+        </ul>
 
-		<emu-clause id="sec-modulesource">
-			<h1>ModuleSource ( _sourceText_ )</h1>
-			<p>When the `ModuleSource` function is called with argument _sourceText_, the following steps are taken:</p>
-			<emu-alg>
-				1. If NewTarget is *undefined*, throw a *TypeError* exception.
-				1. Let _O_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%ModuleSource.prototype%"*, « [[ModuleSource]] »).
-				1. Set _O_.[[ModuleSource]] to ? ParseModuleSource(_sourceText_).
-				1. Return _O_.
-			</emu-alg>
-		</emu-clause>
-	</emu-clause>
+        <emu-clause id="sec-modulesource">
+            <h1>ModuleSource ( _sourceText_ )</h1>
+            <p>When the `ModuleSource` function is called with argument _sourceText_, the following steps are taken:</p>
+            <emu-alg>
+                1. If NewTarget is *undefined*, throw a *TypeError* exception.
+                1. Let _O_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%ModuleSource.prototype%"*, « [[ModuleSource]] »).
+                1. Set _O_.[[ModuleSource]] to ? ParseModuleSource(_sourceText_).
+                1. Return _O_.
+            </emu-alg>
+        </emu-clause>
+    </emu-clause>
 
-	<emu-clause id="sec-properties-of-the-modulesource-constructor">
-		<h1>Properties of the ModuleSource Constructor</h1>
-		<p>The ModuleSource constructor:</p>
-		<ul>
-			<li>has a [[Prototype]] internal slot whose value is %Function.prototype%.</li>
-			<li>has the following properties:</li>
-		</ul>
+    <emu-clause id="sec-properties-of-the-modulesource-constructor">
+        <h1>Properties of the ModuleSource Constructor</h1>
+        <p>The ModuleSource constructor:</p>
+        <ul>
+            <li>has a [[Prototype]] internal slot whose value is %Function.prototype%.</li>
+            <li>has the following properties:</li>
+        </ul>
 
-		<emu-clause id="sec-modulesource.prototype">
-			<h1>ModuleSource.prototype</h1>
-			<p>The initial value of *ModuleSource.prototype* is %ModuleSource.prototype%.</p>
-			<p>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</p>
-		</emu-clause>
-	</emu-clause>
+        <emu-clause id="sec-modulesource.prototype">
+            <h1>ModuleSource.prototype</h1>
+            <p>The initial value of *ModuleSource.prototype* is %ModuleSource.prototype%.</p>
+            <p>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</p>
+        </emu-clause>
+    </emu-clause>
 
-	<emu-clause id="sec-properties-of-the-modulesource-prototype-object">
-		<h1>Properties of the ModuleSource Prototype Object</h1>
-		<p>The ModuleSource prototype object:</p>
-		<ul>
-			<li>has a [[Prototype]] internal slot whose value is %Object.prototype%.</li>
-			<li>is %ModuleSource.prototype%.</li>
-			<li>is an ordinary object.</li>
-		</ul>
+    <emu-clause id="sec-properties-of-the-modulesource-prototype-object">
+        <h1>Properties of the ModuleSource Prototype Object</h1>
+        <p>The ModuleSource prototype object:</p>
+        <ul>
+            <li>has a [[Prototype]] internal slot whose value is %Object.prototype%.</li>
+            <li>is %ModuleSource.prototype%.</li>
+            <li>is an ordinary object.</li>
+        </ul>
 
-		<emu-clause id="sec-modulesource.prototype-@@tostringtag">
-			<h1>ModuleSource.prototype [ @@toStringTag ]</h1>
-			<p>The initial value of the @@toStringTag property is the String value *"ModuleSource"*.</p>
-			<p>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *true* }.</p>
-		</emu-clause>
-	</emu-clause>
+        <emu-clause id="sec-modulesource.prototype-@@tostringtag">
+            <h1>ModuleSource.prototype [ @@toStringTag ]</h1>
+            <p>The initial value of the @@toStringTag property is the String value *"ModuleSource"*.</p>
+            <p>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *true* }.</p>
+        </emu-clause>
+    </emu-clause>
 
-	<emu-clause id="sec-properties-of-modulesource-instances">
-		<h1>Properties of ModuleSource Instances</h1>
-		<p>ModuleSource instances are ordinary objects that inherit properties from the ModuleSource prototype object (the intrinsic, %ModuleSource.prototype%). ModuleSource instances are initially created with the internal slots described in <emu-xref href="#table-internal-slots-of-modulesource-instances"></emu-xref>.</p>
+    <emu-clause id="sec-properties-of-modulesource-instances">
+        <h1>Properties of ModuleSource Instances</h1>
+        <p>ModuleSource instances are ordinary objects that inherit properties from the ModuleSource prototype object (the intrinsic, %ModuleSource.prototype%). ModuleSource instances are initially created with the internal slots described in <emu-xref href="#table-internal-slots-of-modulesource-instances"></emu-xref>.</p>
 
-		<emu-table id="table-internal-slots-of-modulesource-instances" caption="Internal Slots of ModuleSource Instances">
-			<table>
-				<tbody>
-					<tr>
-						<th>Internal Slot</th>
-						<th>Type</th>
-						<th>Description</th>
-					</tr>
-					<tr>
-						<td>[[ModuleSource]]</td>
-						<td>Module Source Record</td>
-						<td>The Module Source Record for the provided source text.</td>
-					</tr>
-				</tbody>
-			</table>
-		</emu-table>
-	</emu-clause>
+        <emu-table id="table-internal-slots-of-modulesource-instances" caption="Internal Slots of ModuleSource Instances">
+            <table>
+                <tbody>
+                    <tr>
+                        <th>Internal Slot</th>
+                        <th>Type</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td>[[ModuleSource]]</td>
+                        <td>Module Source Record</td>
+                        <td>The Module Source Record for the provided source text.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </emu-table>
+    </emu-clause>
 </emu-clause>
 
 <emu-clause id="sec-module-objects">
-	<h1>Module Objects</h1>
-	<emu-clause id="sec-module-abstracts">
-		<h1>Module Abstract Operations</h1>
+    <h1>Module Objects</h1>
+    <emu-clause id="sec-module-abstracts">
+        <h1>Module Abstract Operations</h1>
 
-		<emu-clause id="sec-createmodulerecord" type="abstract operation">
-			<h1>
-				CreateModuleRecord (
-					_moduleSource_: a Module Source Record
-				): a Source Text Module Record
-			</h1>
-			<dl class="header">
-				<dt>description</dt>
-				<dd>It creates a Source Text Module Record based upon the result of a previously parsed _sourceText_ as a |Module| associated to the provided Module Source Record.</dd>
-			</dl>
-			<emu-alg>
-			  1. Assert: _moduleSource_ is a Module Source Record.
-			  1. Let _async_ be _sourceModule_.[[HasTLA]].
-			  1. Let _body_ be _sourceModule_.[[ECMAScriptCode]].
-			  1. Let _requestedModules_ be _sourceModule_.[[RequestedModules]].
-			  1. Let _importEntries_ be _sourceModule_.[[ImportEntries]].
-			  1. Let _localExportEntries_ be _sourceModule_.[[LocalExportEntries]].
-			  1. Let _indirectExportEntries_ be _sourceModule_.[[IndirectExportEntries]].
-			  1. Let _starExportEntries_ be _sourceModule_.[[StarExportEntries]].
-			  1. Let _hostDefined_ be _sourceModule_.[[HostDefined]].
-			  1. Let _realm_ be the current Realm Record.
-			  1. Return Source Text Module Record { [[Realm]]: _realm_, [[Environment]]: ~empty~, [[Namespace]]: ~empty~, [[CycleRoot]]: ~empty~, [[HasTLA]]: _async_, [[AsyncEvaluation]]: *false*, [[TopLevelCapability]]: ~empty~, [[AsyncParentModules]]: &laquo; &raquo;, [[PendingAsyncDependencies]]: ~empty~, [[Status]]: ~unlinked~, [[EvaluationError]]: ~empty~, [[HostDefined]]: _hostDefined_, [[ECMAScriptCode]]: _body_, [[Context]]: ~empty~, [[ImportMeta]]: ~empty~, [[RequestedModules]]: _requestedModules_, [[ImportEntries]]: _importEntries_, [[LocalExportEntries]]: _localExportEntries_, [[IndirectExportEntries]]: _indirectExportEntries_, [[StarExportEntries]]: _starExportEntries_, [[DFSIndex]]: ~empty~, [[DFSAncestorIndex]]: ~empty~, [[ModuleInstance]]: *undefined* }.
-			</emu-alg>
-		</emu-clause>
+        <emu-clause id="sec-createmodulerecord" type="abstract operation">
+            <h1>
+                CreateModuleRecord (
+                    _moduleSource_: a Module Source Record
+                ): a Source Text Module Record
+            </h1>
+            <dl class="header">
+                <dt>description</dt>
+                <dd>It creates a Source Text Module Record based upon the result of a previously parsed _sourceText_ as a |Module| associated to the provided Module Source Record.</dd>
+            </dl>
+            <emu-alg>
+              1. Assert: _moduleSource_ is a Module Source Record.
+              1. Let _async_ be _sourceModule_.[[HasTLA]].
+              1. Let _body_ be _sourceModule_.[[ECMAScriptCode]].
+              1. Let _requestedModules_ be _sourceModule_.[[RequestedModules]].
+              1. Let _importEntries_ be _sourceModule_.[[ImportEntries]].
+              1. Let _localExportEntries_ be _sourceModule_.[[LocalExportEntries]].
+              1. Let _indirectExportEntries_ be _sourceModule_.[[IndirectExportEntries]].
+              1. Let _starExportEntries_ be _sourceModule_.[[StarExportEntries]].
+              1. Let _hostDefined_ be _sourceModule_.[[HostDefined]].
+              1. Let _realm_ be the current Realm Record.
+              1. Return Source Text Module Record { [[Realm]]: _realm_, [[Environment]]: ~empty~, [[Namespace]]: ~empty~, [[CycleRoot]]: ~empty~, [[HasTLA]]: _async_, [[AsyncEvaluation]]: *false*, [[TopLevelCapability]]: ~empty~, [[AsyncParentModules]]: &laquo; &raquo;, [[PendingAsyncDependencies]]: ~empty~, [[Status]]: ~unlinked~, [[EvaluationError]]: ~empty~, [[HostDefined]]: _hostDefined_, [[ECMAScriptCode]]: _body_, [[Context]]: ~empty~, [[ImportMeta]]: ~empty~, [[RequestedModules]]: _requestedModules_, [[ImportEntries]]: _importEntries_, [[LocalExportEntries]]: _localExportEntries_, [[IndirectExportEntries]]: _indirectExportEntries_, [[StarExportEntries]]: _starExportEntries_, [[DFSIndex]]: ~empty~, [[DFSAncestorIndex]]: ~empty~, [[ModuleInstance]]: *undefined* }.
+            </emu-alg>
+        </emu-clause>
 
-		<emu-clause id="sec-resolvemodulerecorddependency" type="abstract operation">
-			<h1>
-				ResolveModuleRecordDependency (
-					_moduleRecord_: a Module Record,
-            		_specifier_: a |ModuleSpecifier| String,
-					_promiseCapability_: a PromiseCapability Record,
-				): ~unused~
-			</h1>
-			<dl class="header">
-			  <dt>description</dt>
-			  <dd>TODO: It provides the concrete Module Record subclass instance that corresponds to _specifier_ occurring within the module represented by _moduleRecord_.</dd>
-			</dl>
-			<emu-alg>
-			  1. Assert: _moduleRecord_ is a Module Record.
-			  1. Assert: _moduleRecord_.[[ModuleInstance]] is an Object.
-			  1. Assert: ResolveModuleRecordDependency has not been invoked with _moduleRecord_ and _specifier_ pair.
-			  1. Let _moduleInstance_ be _moduleRecord_.[[ModuleInstance]]. 
-			  1. Let _importHook_ be _moduleInstance_.[[CustomImportHook]].
-			  1. Let _importMeta_ be _moduleInstance_.[[CustomImportMeta]].
-			  1. Let _completion_ be Completion(Call(_importHook_, *undefined*, « _specifier_, _importMeta_ »).
-			  1. IfAbruptRejectPromise(_completion_, _promiseCapability_).
-			  1. Let _importHookPromise_ be ? PromiseResolve(%Promise%, _completion_.[[Value]]).
-			  1. Let _fulfilledClosure_ be a new Abstract Closure with parameters (_result_) that captures _moduleRecord_ and _promiseCapability_ and performs the following steps when called
-				1. Assert: Evaluate has already been invoked on _moduleRecord_ and successfully completed.
-				1. If _result_ is an Object that has a [[Module]] internal slot, then
-			      1. NOTE: The ImportHook can resolve to a namespace exotic object or a Module Instance.
-			      1. Let _moduleRecord_ be _moduleInstanceOrNamespace_.[[Module]].
-				  1. Perform ! Call(_promiseCapability_.[[Resolve]], *undefined*, &laquo; _moduleRecord_ &raquo;).
-				2. Else,
-				  1. Perform ! Call(_promiseCapability_.[[Reject]], *undefined*, &laquo; a newly created *TypeError* object &raquo;).
-				1. Return ~unused~.
-			  1. Let _onFulfilled_ be CreateBuiltinFunction(_fulfilledClosure_, 0, *""*, &laquo; &raquo;).
-			  1. Let _rejectedClosure_ be a new Abstract Closure with parameters (_error_) that captures _promiseCapability_ and performs the following steps when called:
-				1. Perform ! Call(_promiseCapability_.[[Reject]], *undefined*, &laquo; _error_ &raquo;).
-				1. Return ~unused~.
-			  1. Let _onRejected_ be CreateBuiltinFunction(_rejectedClosure_, 0, *""*, &laquo; &raquo;).
-			  1. Perform PerformPromiseThen(_importHookPromise_, _onFulfilled_, _onRejected_).
-			  1. Return ~unused~.
-			</emu-alg>
+        <emu-clause id="sec-resolvemodulerecorddependency" type="abstract operation">
+            <h1>
+                ResolveModuleRecordDependency (
+                    _moduleRecord_: a Module Record,
+                    _specifier_: a |ModuleSpecifier| String,
+                    _promiseCapability_: a PromiseCapability Record,
+                ): ~unused~
+            </h1>
+            <dl class="header">
+              <dt>description</dt>
+              <dd>TODO: It provides the concrete Module Record subclass instance that corresponds to _specifier_ occurring within the module represented by _moduleRecord_.</dd>
+            </dl>
+            <emu-alg>
+              1. Assert: _moduleRecord_ is a Module Record.
+              1. Assert: _moduleRecord_.[[ModuleInstance]] is an Object.
+              1. Assert: ResolveModuleRecordDependency has not been invoked with _moduleRecord_ and _specifier_ pair.
+              1. Let _moduleInstance_ be _moduleRecord_.[[ModuleInstance]].
+              1. Let _importHook_ be _moduleInstance_.[[CustomImportHook]].
+              1. Let _importMeta_ be _moduleInstance_.[[CustomImportMeta]].
+              1. Let _completion_ be Completion(Call(_importHook_, *undefined*, « _specifier_, _importMeta_ »).
+              1. IfAbruptRejectPromise(_completion_, _promiseCapability_).
+              1. Let _importHookPromise_ be ? PromiseResolve(%Promise%, _completion_.[[Value]]).
+              1. Let _fulfilledClosure_ be a new Abstract Closure with parameters (_result_) that captures _moduleRecord_ and _promiseCapability_ and performs the following steps when called
+                1. Assert: Evaluate has already been invoked on _moduleRecord_ and successfully completed.
+                1. If _result_ is an Object that has a [[Module]] internal slot, then
+                  1. NOTE: The ImportHook can resolve to a namespace exotic object or a Module Instance.
+                  1. Let _moduleRecord_ be _moduleInstanceOrNamespace_.[[Module]].
+                  1. Perform ! Call(_promiseCapability_.[[Resolve]], *undefined*, &laquo; _moduleRecord_ &raquo;).
+                2. Else,
+                  1. Perform ! Call(_promiseCapability_.[[Reject]], *undefined*, &laquo; a newly created *TypeError* object &raquo;).
+                1. Return ~unused~.
+              1. Let _onFulfilled_ be CreateBuiltinFunction(_fulfilledClosure_, 0, *""*, &laquo; &raquo;).
+              1. Let _rejectedClosure_ be a new Abstract Closure with parameters (_error_) that captures _promiseCapability_ and performs the following steps when called:
+                1. Perform ! Call(_promiseCapability_.[[Reject]], *undefined*, &laquo; _error_ &raquo;).
+                1. Return ~unused~.
+              1. Let _onRejected_ be CreateBuiltinFunction(_rejectedClosure_, 0, *""*, &laquo; &raquo;).
+              1. Perform PerformPromiseThen(_importHookPromise_, _onFulfilled_, _onRejected_).
+              1. Return ~unused~.
+            </emu-alg>
 
-			<emu-note>
-				ResolveModuleRecordDependency Abstract Operation can not be called more than once for arguments _moduleRecord_ and _specifier_ pair.
-			</emu-note>
-		</emu-clause>
+            <emu-note>
+                ResolveModuleRecordDependency Abstract Operation can not be called more than once for arguments _moduleRecord_ and _specifier_ pair.
+            </emu-note>
+        </emu-clause>
 
-		<emu-clause id="sec-hostimportmodulerecorddynamically" type="host-defined abstract operation">
-			<h1>
-			  HostImportModuleRecordDynamically (
-				_moduleRecord_: a Module Record,
-				_specifier_: a |ModuleSpecifier| String,
-				_promiseCapability_: a PromiseCapability Record,
-			  ): ~unused~
-			</h1>
-			<dl class="header">
-			  <dt>description</dt>
-			  <dd>It performs any necessary setup work in order to make available the module corresponding to module represented by _moduleRecord_. It then performs FinishModuleDynamicImport to finish the dynamic import process.</dd>
-			</dl>
-			<p>An implementation of HostImportModuleRecordDynamically must conform to the following requirements:</p>
-	
-			<ul>
-			  <li>
-				It must return ~unused~. Success or failure must instead be signaled as discussed below.
-			  </li>
-			  <li>
-				The host environment must conform to one of the two following sets of requirements:
-				<dl>
-				  <dt>Success path</dt>
-	
-				  <dd>
-					<ul>
-					  <li>At some future time, the host environment must perform FinishModuleDynamicImport(_moduleRecord_, _promiseCapability_, _promise_), where _promise_ is a Promise resolved with *undefined*.</li>
-	
-					  <li>Any subsequent call to HostResolveImportedModule after FinishModuleDynamicImport has completed, given the argument _moduleRecord_, must return a normal completion containing a module which has already been evaluated, i.e. whose Evaluate concrete method has already been called and returned a normal completion.</li>
-					</ul>
-				  </dd>
-	
-				  <dt>Failure path</dt>
-	
-				  <dd>
-					<ul>
-					  <li>At some future time, the host environment must perform FinishModuleDynamicImport(_moduleRecord_, _promiseCapability_, _promise_), where _promise_ is a Promise rejected with an error representing the cause of failure.</li>
-					</ul>
-				  </dd>
-				</dl>
-			  </li>
-			  <li>
-				If the host environment takes the success path once for a given _moduleRecord_, it must always do so for subsequent calls.
-			  </li>
-			  <li>
-				The operation must not call _promiseCapability_.[[Resolve]] or _promiseCapability_.[[Reject]], but instead must treat _promiseCapability_ as an opaque identifying value to be passed through to FinishModuleDynamicImport.
-			  </li>
-			</ul>
-	
-			<emu-note type="editor">
-				This Abstract Operation is analogous to HostImportModuleDynamically. A future refactor can use this abstract operation as the foundation for other existings usages of HostImportModuleDynamically.
-			</emu-note>
+        <emu-clause id="sec-hostimportmodulerecorddynamically" type="host-defined abstract operation">
+            <h1>
+              HostImportModuleRecordDynamically (
+                _moduleRecord_: a Module Record,
+                _specifier_: a |ModuleSpecifier| String,
+                _promiseCapability_: a PromiseCapability Record,
+              ): ~unused~
+            </h1>
+            <dl class="header">
+              <dt>description</dt>
+              <dd>It performs any necessary setup work in order to make available the module corresponding to module represented by _moduleRecord_. It then performs FinishModuleDynamicImport to finish the dynamic import process.</dd>
+            </dl>
+            <p>An implementation of HostImportModuleRecordDynamically must conform to the following requirements:</p>
+    
+            <ul>
+              <li>
+                It must return ~unused~. Success or failure must instead be signaled as discussed below.
+              </li>
+              <li>
+                The host environment must conform to one of the two following sets of requirements:
+                <dl>
+                  <dt>Success path</dt>
+    
+                  <dd>
+                    <ul>
+                      <li>At some future time, the host environment must perform FinishModuleDynamicImport(_moduleRecord_, _promiseCapability_, _promise_), where _promise_ is a Promise resolved with *undefined*.</li>
+    
+                      <li>Any subsequent call to HostResolveImportedModule after FinishModuleDynamicImport has completed, given the argument _moduleRecord_, must return a normal completion containing a module which has already been evaluated, i.e. whose Evaluate concrete method has already been called and returned a normal completion.</li>
+                    </ul>
+                  </dd>
+    
+                  <dt>Failure path</dt>
+    
+                  <dd>
+                    <ul>
+                      <li>At some future time, the host environment must perform FinishModuleDynamicImport(_moduleRecord_, _promiseCapability_, _promise_), where _promise_ is a Promise rejected with an error representing the cause of failure.</li>
+                    </ul>
+                  </dd>
+                </dl>
+              </li>
+              <li>
+                If the host environment takes the success path once for a given _moduleRecord_, it must always do so for subsequent calls.
+              </li>
+              <li>
+                The operation must not call _promiseCapability_.[[Resolve]] or _promiseCapability_.[[Reject]], but instead must treat _promiseCapability_ as an opaque identifying value to be passed through to FinishModuleDynamicImport.
+              </li>
+            </ul>
+    
+            <emu-note type="editor">
+                This Abstract Operation is analogous to HostImportModuleDynamically. A future refactor can use this abstract operation as the foundation for other existings usages of HostImportModuleDynamically.
+            </emu-note>
 
-			<p>The actual process performed is host-defined, but typically consists of performing whatever operations are necessary to allow ResolveModuleRecordDependency to asynchronously retrieve the appropriate Module Record for each imported module, and then calling its Evaluate concrete method.</p>
-		  </emu-clause>
-	
-		  <emu-clause id="sec-finishmoduledynamicimport" type="abstract operation">
-			<h1>
-			  FinishModuleDynamicImport (
-				_moduleRecord_: a Module Record,
-				_promiseCapability_: a PromiseCapability Record,
-				_innerPromise_: unknown,
-			  ): ~unused~
-			</h1>
-			<dl class="header">
-			  <dt>description</dt>
-			  <dd>FinishModuleDynamicImport completes the process of a dynamic import originally started by an <emu-xref href="#sec-import-calls">`import()`</emu-xref> call for a Module Instance, resolving or rejecting the promise returned by that call as appropriate according to _innerPromise_'s resolution. It is performed by host environments as part of HostImportModuleRecordDynamically.</dd>
-			</dl>
-			<emu-alg>
-			  1. Let _fulfilledClosure_ be a new Abstract Closure with parameters (_result_) that captures _moduleRecord_ and _promiseCapability_ and performs the following steps when called:
-				1. Assert: _result_ is *undefined*.
-				1. Assert: Evaluate has already been invoked on _moduleRecord_ and successfully completed.
-				1. Let _namespace_ be Completion(GetModuleNamespace(_moduleRecord_)).
-				1. If _namespace_ is an abrupt completion, then
-				  1. Perform ! Call(_promiseCapability_.[[Reject]], *undefined*, &laquo; _namespace_.[[Value]] &raquo;).
-				1. Else,
-				  1. Perform ! Call(_promiseCapability_.[[Resolve]], *undefined*, &laquo; _namespace_.[[Value]] &raquo;).
-				1. Return ~unused~.
-			  1. Let _onFulfilled_ be CreateBuiltinFunction(_fulfilledClosure_, 0, *""*, &laquo; &raquo;).
-			  1. Let _rejectedClosure_ be a new Abstract Closure with parameters (_error_) that captures _promiseCapability_ and performs the following steps when called:
-				1. Perform ! Call(_promiseCapability_.[[Reject]], *undefined*, &laquo; _error_ &raquo;).
-				1. Return ~unused~.
-			  1. Let _onRejected_ be CreateBuiltinFunction(_rejectedClosure_, 0, *""*, &laquo; &raquo;).
-			  1. Perform PerformPromiseThen(_innerPromise_, _onFulfilled_, _onRejected_).
-			  1. Return ~unused~.
-			</emu-alg>
+            <p>The actual process performed is host-defined, but typically consists of performing whatever operations are necessary to allow ResolveModuleRecordDependency to asynchronously retrieve the appropriate Module Record for each imported module, and then calling its Evaluate concrete method.</p>
+          </emu-clause>
+    
+          <emu-clause id="sec-finishmoduledynamicimport" type="abstract operation">
+            <h1>
+              FinishModuleDynamicImport (
+                _moduleRecord_: a Module Record,
+                _promiseCapability_: a PromiseCapability Record,
+                _innerPromise_: unknown,
+              ): ~unused~
+            </h1>
+            <dl class="header">
+              <dt>description</dt>
+              <dd>FinishModuleDynamicImport completes the process of a dynamic import originally started by an <emu-xref href="#sec-import-calls">`import()`</emu-xref> call for a Module Instance, resolving or rejecting the promise returned by that call as appropriate according to _innerPromise_'s resolution. It is performed by host environments as part of HostImportModuleRecordDynamically.</dd>
+            </dl>
+            <emu-alg>
+              1. Let _fulfilledClosure_ be a new Abstract Closure with parameters (_result_) that captures _moduleRecord_ and _promiseCapability_ and performs the following steps when called:
+                1. Assert: _result_ is *undefined*.
+                1. Assert: Evaluate has already been invoked on _moduleRecord_ and successfully completed.
+                1. Let _namespace_ be Completion(GetModuleNamespace(_moduleRecord_)).
+                1. If _namespace_ is an abrupt completion, then
+                  1. Perform ! Call(_promiseCapability_.[[Reject]], *undefined*, &laquo; _namespace_.[[Value]] &raquo;).
+                1. Else,
+                  1. Perform ! Call(_promiseCapability_.[[Resolve]], *undefined*, &laquo; _namespace_.[[Value]] &raquo;).
+                1. Return ~unused~.
+              1. Let _onFulfilled_ be CreateBuiltinFunction(_fulfilledClosure_, 0, *""*, &laquo; &raquo;).
+              1. Let _rejectedClosure_ be a new Abstract Closure with parameters (_error_) that captures _promiseCapability_ and performs the following steps when called:
+                1. Perform ! Call(_promiseCapability_.[[Reject]], *undefined*, &laquo; _error_ &raquo;).
+                1. Return ~unused~.
+              1. Let _onRejected_ be CreateBuiltinFunction(_rejectedClosure_, 0, *""*, &laquo; &raquo;).
+              1. Perform PerformPromiseThen(_innerPromise_, _onFulfilled_, _onRejected_).
+              1. Return ~unused~.
+            </emu-alg>
 
-			<emu-note type="editor">
-				This Abstract Operation is analogous to FinishDynamicImport. A future refactor can use this abstract operation as the foundation for other existings usages of FinishDynamicImport.
-			</emu-note>
-		  </emu-clause>
+            <emu-note type="editor">
+                This Abstract Operation is analogous to FinishDynamicImport. A future refactor can use this abstract operation as the foundation for other existings usages of FinishDynamicImport.
+            </emu-note>
+          </emu-clause>
 
-	</emu-clause>
 
-	<emu-clause id="sec-module-constructor">
-		<h1>The Module Constructor</h1>
-		<p>The Module constructor:</p>
-		<ul>
-			<li>is the intrinsic object <dfn>%Module%</dfn>.</li>
-			<li>is the initial value of the *"Module"* property of the global object.</li>
-			<li>is not intended to be called as a function and will throw an exception when called in that manner.</li>
-			<li>creates and initializes a new Module object when called as a constructor.</li>
-		</ul>
+        <emu-clause id="sec-createimportmetavaluesrecord" type="abstract operation">
+            <h1>
+                CreateImportMetaValuesRecord (
+                    _importMeta_: An object,
+                ): a List of Records with fields [[Key]] (a property key) and [[Value]] (an ECMAScript language value)
+            </h1>
+            <dl class="header">
+              <dt>description</dt>
+              <dd>From a given _importMeta_, this abstract operation creates a List of Records for the qualifying values that must be present when a module body accesses import.meta syntax.</dd>
+            </dl>
+            <emu-alg>
+                1. Let _list_ be a new List.
+                1. Let _from_ be ! ToObject(_importMeta_).
+                1. Let _keys_ be ? <emu-meta effects="user-code">_from_.[[OwnPropertyKeys]]()</emu-meta>.
+                1. For each element _nextKey_ of _keys_, do
+                  1. Let _desc_ be ? <emu-meta effects="user-code">_from_.[[GetOwnProperty]]</emu-meta>(_nextKey_).
+                  1. If _desc_ is not *undefined* and _desc_.[[Enumerable]] is *true*, then
+                    1. Let _nextValue_ be ? Get(_from_, _nextKey_).
+                    1. Append the Record { [[Key]]: _nextKey_, [[Value]]: _nextValue_ } to the _list_ List.
+                1. Return _list_.
+            </emu-alg>
+        </emu-clause>
+    </emu-clause>
 
-		<emu-clause id="sec-module">
-			<h1>Module ( _moduleSource_, _importHook_, _importMeta_ )</h1>
-			<p>When the `Module` function is called with the arguments _moduleSource_, _importHook_ and _importMeta_, the following steps are taken:</p>
-			<emu-alg>
-				1. If NewTarget is *undefined*, throw a *TypeError* exception.
-				1. If Type(_moduleSource_) is not Callable, throw a *TypeError* exception.
-				1. If Type(_importHook_) is not Callable, throw a *TypeError* exception.
-				1. If Type(_importMeta_) is not Object, throw a *TypeError* exception.
-				1. If IsCallable(_importHook_) is *false*, throw a *TypeError* exception.
-				1. Perform ? RequireInternalSlot(_moduleSource_, [[ModuleSource]]).
-				1. Let _P_ be MakeBasicObject(&laquo; [[ImportHook]], [[ImportMeta]] &raquo;).
-				1. Let _O_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%Module.prototype%"*, « [[Module]], [[ModuleSourceInstance]], [[CustomImportHook]], [[CustomImportMeta]] »).
-				1. Let _moduleRecord_ to ! CreateModuleRecord(_moduleSource_.[[ModuleSource]]).
-				1. Set _moduleRecord_.[[ModuleInstance]] to _O_.
-				1. Set _O_.[[Module]] to _moduleRecord_.
-				1. Set _O_.[[ModuleSourceInstance]] to _moduleSource_.
-				1. Set _O_.[[CustomImportHook]] to _importHook_.
-				1. Set _O_.[[CustomImportMeta]] to _importMeta_.
-				1. Return _O_.
-			</emu-alg>
-		</emu-clause>
-	</emu-clause>
+    <emu-clause id="sec-module-constructor">
+        <h1>The Module Constructor</h1>
+        <p>The Module constructor:</p>
+        <ul>
+            <li>is the intrinsic object <dfn>%Module%</dfn>.</li>
+            <li>is the initial value of the *"Module"* property of the global object.</li>
+            <li>is not intended to be called as a function and will throw an exception when called in that manner.</li>
+            <li>creates and initializes a new Module object when called as a constructor.</li>
+        </ul>
 
-	<emu-clause id="sec-properties-of-the-module-constructor">
-		<h1>Properties of the Module Constructor</h1>
-		<p>The Module constructor:</p>
-		<ul>
-			<li>has a [[Prototype]] internal slot whose value is %Function.prototype%.</li>
-			<li>has the following properties:</li>
-		</ul>
+        <emu-clause id="sec-module">
+            <h1>Module ( _moduleSource_, _importHook_, _importMeta_ )</h1>
+            <p>When the `Module` function is called with the arguments _moduleSource_, _importHook_ and _importMeta_, the following steps are taken:</p>
+            <emu-alg>
+                1. If NewTarget is *undefined*, throw a *TypeError* exception.
+                1. If Type(_moduleSource_) is not Callable, throw a *TypeError* exception.
+                1. If Type(_importHook_) is not Callable, throw a *TypeError* exception.
+                1. If Type(_importMeta_) is not Object, throw a *TypeError* exception.
+                1. If IsCallable(_importHook_) is *false*, throw a *TypeError* exception.
+                1. Perform ? RequireInternalSlot(_moduleSource_, [[ModuleSource]]).
+                1. Let _P_ be MakeBasicObject(&laquo; [[ImportHook]], [[ImportMeta]] &raquo;).
+                1. Let _O_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%Module.prototype%"*, « [[Module]], [[ModuleSourceInstance]], [[CustomImportHook]], [[CustomImportMeta]], [[ImportMetaValues]] »).
+                1. Let _moduleRecord_ to ! CreateModuleRecord(_moduleSource_.[[ModuleSource]]).
+                1. Set _moduleRecord_.[[ModuleInstance]] to _O_.
+                1. Set _O_.[[Module]] to _moduleRecord_.
+                1. Set _O_.[[ModuleSourceInstance]] to _moduleSource_.
+                1. Set _O_.[[CustomImportHook]] to _importHook_.
+                1. Set _O_.[[CustomImportMeta]] to _importMeta_.
+                1. Set _O_.[[ImportMetaValues]] to ? CreateImportMetaValuesRecord(_importMeta_).
+                1. Return _O_.
+            </emu-alg>
+        </emu-clause>
+    </emu-clause>
 
-		<emu-clause id="sec-module.prototype">
-			<h1>Module.prototype</h1>
-			<p>The initial value of *Module.prototype* is %Module.prototype%.</p>
-			<p>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</p>
-		</emu-clause>
-	</emu-clause>
+    <emu-clause id="sec-properties-of-the-module-constructor">
+        <h1>Properties of the Module Constructor</h1>
+        <p>The Module constructor:</p>
+        <ul>
+            <li>has a [[Prototype]] internal slot whose value is %Function.prototype%.</li>
+            <li>has the following properties:</li>
+        </ul>
 
-	<emu-clause id="sec-properties-of-the-module-prototype-object">
-		<h1>Properties of the Module Prototype Object</h1>
-		<p>The Module prototype object:</p>
-		<ul>
-			<li>has a [[Prototype]] internal slot whose value is <dfn>%Object.prototype%</dfn>.</li>
-			<li>is %Module.prototype%.</li>
-			<li>is an ordinary object.</li>
-			<li>does not have a [[Module]] or any other of the internal slots that are specific to _Realm_ instance objects.</li>
-		</ul>
+        <emu-clause id="sec-module.prototype">
+            <h1>Module.prototype</h1>
+            <p>The initial value of *Module.prototype* is %Module.prototype%.</p>
+            <p>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *false* }.</p>
+        </emu-clause>
+    </emu-clause>
 
-		<emu-clause id="sec-module.prototype.source">
-			<h1>get Module.prototype.source</h1>
-			<p>`Module.prototype.source` is an accessor property whose set accessor function is *undefined*. Its get accessor function performs the following steps:</p>
-			<emu-alg>
-			  1. Let _M_ be the *this* value.
-			  1. Perform ? RequireInternalSlot(_M_, [[ModuleSourceInstance]]).
-			  1. Return _M_.[[ModuleSourceInstance]].
-			</emu-alg>
-		</emu-clause>
+    <emu-clause id="sec-properties-of-the-module-prototype-object">
+        <h1>Properties of the Module Prototype Object</h1>
+        <p>The Module prototype object:</p>
+        <ul>
+            <li>has a [[Prototype]] internal slot whose value is <dfn>%Object.prototype%</dfn>.</li>
+            <li>is %Module.prototype%.</li>
+            <li>is an ordinary object.</li>
+            <li>does not have a [[Module]] or any other of the internal slots that are specific to _Realm_ instance objects.</li>
+        </ul>
 
-		<emu-clause id="sec-module.prototype-@@tostringtag">
-			<h1>Module.prototype [ @@toStringTag ]</h1>
-			<p>The initial value of the @@toStringTag property is the String value *"Module"*.</p>
-			<p>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *true* }.</p>
-		</emu-clause>
-	</emu-clause>
+        <emu-clause id="sec-module.prototype.source">
+            <h1>get Module.prototype.source</h1>
+            <p>`Module.prototype.source` is an accessor property whose set accessor function is *undefined*. Its get accessor function performs the following steps:</p>
+            <emu-alg>
+              1. Let _M_ be the *this* value.
+              1. Perform ? RequireInternalSlot(_M_, [[ModuleSourceInstance]]).
+              1. Return _M_.[[ModuleSourceInstance]].
+            </emu-alg>
+        </emu-clause>
 
-	<emu-clause id="sec-properties-of-module-instances">
-		<h1>Properties of Module Instances</h1>
-		<p>Module instances are ordinary objects that inherit properties from the Module prototype object (the intrinsic, %Module.prototype%). Module instances are initially created with the internal slots described in <emu-xref href="#table-internal-slots-of-module-instances"></emu-xref>.</p>
+        <emu-clause id="sec-module.prototype-@@tostringtag">
+            <h1>Module.prototype [ @@toStringTag ]</h1>
+            <p>The initial value of the @@toStringTag property is the String value *"Module"*.</p>
+            <p>This property has the attributes { [[Writable]]: *false*, [[Enumerable]]: *false*, [[Configurable]]: *true* }.</p>
+        </emu-clause>
+    </emu-clause>
 
-		<emu-table id="table-internal-slots-of-module-instances" caption="Internal Slots of Module Instances">
-			<table>
-				<tbody>
-					<tr>
-						<th>Internal Slot</th>
-						<th>Type</th>
-						<th>Description</th>
-					</tr>
-					<tr>
-						<td>[[Module]]</td>
-						<td>Source Text Module Record</td>
-						<td>The Source Text Module Record that represents this Module Instance.</td>
-					</tr>
-					<tr>
-						<td>[[ModuleSourceInstance]]</td>
-						<td>ModuleSource Instance</td>
-						<td>The Source Text Module Record that represents this Module Instance.</td>
-					</tr>
-					<tr>
-						<td>[[CustomImportHook]]</td>
-						<td>a callable Object</td>
-						<td>The callable Object associated to the [[Module]] record to resolve module dependencies.</td>
-					</tr>
-					<tr>
-						<td>[[CustomImportMeta]]</td>
-						<td>An Object</td>
-						<td>A value passed as second argument when calling the [[CustomImportHook]].</td>
-					</tr>
-				</tbody>
-			</table>
-		</emu-table>
-	</emu-clause>
+    <emu-clause id="sec-properties-of-module-instances">
+        <h1>Properties of Module Instances</h1>
+        <p>Module instances are ordinary objects that inherit properties from the Module prototype object (the intrinsic, %Module.prototype%). Module instances are initially created with the internal slots described in <emu-xref href="#table-internal-slots-of-module-instances"></emu-xref>.</p>
+
+        <emu-table id="table-internal-slots-of-module-instances" caption="Internal Slots of Module Instances">
+            <table>
+                <tbody>
+                    <tr>
+                        <th>Internal Slot</th>
+                        <th>Type</th>
+                        <th>Description</th>
+                    </tr>
+                    <tr>
+                        <td>[[Module]]</td>
+                        <td>Source Text Module Record</td>
+                        <td>The Source Text Module Record that represents this Module Instance.</td>
+                    </tr>
+                    <tr>
+                        <td>[[ModuleSourceInstance]]</td>
+                        <td>ModuleSource Instance</td>
+                        <td>The Source Text Module Record that represents this Module Instance.</td>
+                    </tr>
+                    <tr>
+                        <td>[[CustomImportHook]]</td>
+                        <td>a callable Object</td>
+                        <td>The callable Object associated to the [[Module]] record to resolve module dependencies.</td>
+                    </tr>
+                    <tr>
+                        <td>[[CustomImportMeta]]</td>
+                        <td>An Object</td>
+                        <td>A value passed as second argument when calling the [[CustomImportHook]].</td>
+                    </tr>
+                    <tr>
+                        <td>[[ImportMetaValues]]</td>
+                        <td>a List of Records with fields [[Key]] (a property key) and [[Value]] (an ECMAScript language value)</td>
+                        <td>A List of Records used to reify the value accessible via import.meta syntax.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </emu-table>
+    </emu-clause>
 </emu-clause>
 
 </body>
