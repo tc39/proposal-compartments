@@ -471,6 +471,9 @@ location: https://tc39.es/proposal-compartments/
                 The operation must not call _promiseCapability_.[[Resolve]] or _promiseCapability_.[[Reject]], but instead must treat _promiseCapability_ as an opaque identifying value to be passed through to FinishModuleDynamicImport.
               </li>
             </ul>
+            <emu-note type="editor">
+                This host operation is hand-waving, similar to FinishDynamicImport. This will be addressed on a separate refactor that is orthogonal to this proposal.
+            </emu-note>
           </emu-clause>
     
           <emu-clause id="sec-finishmoduledynamicimport" type="abstract operation">
