@@ -445,7 +445,7 @@ location: https://tc39.es/proposal-compartments/
     
             <ul>
               <li>
-                It must return ~unused~. It must call HostResolveImportedModule for every dependencies. Success or failure must instead be signaled as discussed below.
+                It must return ~unused~. It must call ResolveModuleRecordDependency for every unique |ModuleSpecifier| associated to the _moduleRecord_. Success or failure must instead be signaled as discussed below.
               </li>
               <li>
                 The host environment must conform to one of the two following sets of requirements:
