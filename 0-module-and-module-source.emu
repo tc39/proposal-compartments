@@ -519,7 +519,6 @@ location: https://tc39.es/proposal-compartments/
                 1. If Type(_importMeta_) is not Object, throw a *TypeError* exception.
                 1. If IsCallable(_importHook_) is *false*, throw a *TypeError* exception.
                 1. Perform ? RequireInternalSlot(_moduleSource_, [[ModuleSource]]).
-                1. Let _P_ be MakeBasicObject(&laquo; [[ImportHook]], [[ImportMeta]] &raquo;).
                 1. Let _O_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%Module.prototype%"*, « [[Module]], [[ModuleSourceInstance]], [[ImportHook]] »).
                 1. Let _moduleRecord_ to ! CreateModuleRecord(_moduleSource_.[[ModuleSource]]).
                 1. Set _moduleRecord_.[[ModuleInstance]] to _O_.
@@ -528,7 +527,7 @@ location: https://tc39.es/proposal-compartments/
                   1. return ? Call(_importHook_, *undefined*, « _specifier_, _importMeta_ »).
                 1. Set _O_.[[Module]] to _moduleRecord_.
                 1. Set _O_.[[ModuleSourceInstance]] to _moduleSource_.
-                1. Set _O_.[[ImportHook]] be CreateBuiltinFunction(_importHookClosure_, 0, *""*, &laquo; &raquo;).
+                1. Set _O_.[[ImportHook]] be CreateBuiltinFunction(_importHookClosure_, 1, *""*, &laquo; &raquo;).
                 1. Perform ? CreateCustomImportMeta(_moduleRecord_, _importMeta_).
                 1. Return _O_.
             </emu-alg>
