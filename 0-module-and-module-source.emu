@@ -270,6 +270,10 @@ location: https://tc39.es/proposal-compartments/
               1. Let _hostDefined_ be *undefined*.
               1. Return Module Source Record { [[HasTLA]]: _async_, [[ECMAScriptCode]]: _body_, [[RequestedModules]]: _requestedModules_, [[ImportEntries]]: _importEntries_, [[LocalExportEntries]]: _localExportEntries_, [[IndirectExportEntries]]: _indirectExportEntries_, [[StarExportEntries]]: _starExportEntries_, [[HostDefined]]: _hostDefined_ }.
             </emu-alg>
+
+            <emu-note type="editor">
+                A Module Source Record is the static portion of a Module Record. A refactor of the spec can make this separation more formal instead of just having both of them sharing the same set of Internal Slots.
+             </emu-note>
         </emu-clause>
 
     </emu-clause>
