@@ -2874,6 +2874,9 @@ li.menu-search-result-term:before {
                 The operation must not call <var>promiseCapability</var>.[[Resolve]] or <var>promiseCapability</var>.[[Reject]], but instead must treat <var>promiseCapability</var> as an opaque identifying value to be passed through to <emu-xref aoid="FinishModuleDynamicImport" id="_ref_29"><a href="#sec-finishmoduledynamicimport">FinishModuleDynamicImport</a></emu-xref>.
               </li>
             </ul>
+            <emu-note type="editor"><span class="note">Editor's Note</span><div class="note-contents">
+                This <emu-xref href="#host"><a href="https://tc39.es/ecma262/#host">host</a></emu-xref> operation is hand-waving, similar to <emu-xref aoid="FinishDynamicImport"><a href="https://tc39.es/ecma262/#sec-finishdynamicimport">FinishDynamicImport</a></emu-xref>. This will be addressed on a separate refactor that is orthogonal to this proposal.
+            </div></emu-note>
           </emu-clause>
     
           <emu-clause id="sec-finishmoduledynamicimport" type="abstract operation" aoid="FinishModuleDynamicImport">
