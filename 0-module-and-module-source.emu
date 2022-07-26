@@ -406,9 +406,8 @@ location: https://tc39.es/proposal-compartments/
               1. IfAbruptRejectPromise(_completion_, _promiseCapability_).
               1. Let _importHookPromise_ be ? PromiseResolve(%Promise%, _completion_.[[Value]]).
               1. Let _fulfilledClosure_ be a new Abstract Closure with parameters (_result_) that captures _moduleRecord_ and _promiseCapability_ and performs the following steps when called
-                1. Assert: Evaluate has already been invoked on _moduleRecord_ and successfully completed.
                 1. If _result_ is an Object that has a [[ImportHook]] internal slot, then
-                  1. Let _moduleRecord_ be _moduleInstanceOrNamespace_.[[Module]].
+                  1. Let _moduleRecord_ be _result_.[[Module]].
                   1. Perform ! Call(_promiseCapability_.[[Resolve]], *undefined*, &laquo; _moduleRecord_ &raquo;).
                 2. Else,
                   1. Perform ! Call(_promiseCapability_.[[Reject]], *undefined*, &laquo; a newly created *TypeError* object &raquo;).
