@@ -417,7 +417,7 @@ location: https://tc39.es/proposal-compartments/
               1. Let _rejectedClosure_ be a new Abstract Closure with parameters (_error_) that captures _promiseCapability_ and performs the following steps when called:
                 1. Perform ! Call(_promiseCapability_.[[Reject]], *undefined*, &laquo; _error_ &raquo;).
                 1. Return ~unused~.
-              1. Let _onRejected_ be CreateBuiltinFunction(_rejectedClosure_, 0, *""*, &laquo; &raquo;).
+              1. Let _onRejected_ be CreateBuiltinFunction(_rejectedClosure_, 1, *""*, &laquo; &raquo;).
               1. Perform PerformPromiseThen(_importHookPromise_, _onFulfilled_, _onRejected_).
               1. Return ~unused~.
             </emu-alg>
