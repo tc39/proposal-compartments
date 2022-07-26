@@ -11,7 +11,7 @@
 <pre class="metadata">
 title: 'Module & ModuleSource API'
 stage: 1
-contributors: Mark Miller, Caridy Patiño, Patrick Soquet, Kris Kowal, Jack Works, Guy Bedford
+contributors: Mark Miller, Caridy Patiño, Patrick Soquet, Kris Kowal, Jack Works, Guy Bedford, Nicolò Ribaudo
 status: proposal
 copyright: false
 location: https://tc39.es/proposal-compartments/
@@ -39,6 +39,47 @@ location: https://tc39.es/proposal-compartments/
                 </tr>
             </tbody>
         </table>
+    </emu-table>
+</emu-clause>
+
+<emu-clause id="sec-source-text-module-records">
+    <h1>Source Text Module Records</h1>
+
+    <p>In addition to the fields defined in <emu-xref href="#table-cyclic-module-fields"></emu-xref>, Source Text Module Records have the additional fields listed in <emu-xref href="#table-additional-fields-of-source-text-module-records"></emu-xref>. Each of these fields is initially set in ParseModule.</p>
+    <emu-table id="table-additional-fields-of-source-text-module-records" caption="Additional Fields of Source Text Module Records" oldids="table-38">
+      <table>
+        <tr>
+          <th>
+            Field Name
+          </th>
+          <th>
+            Value Type
+          </th>
+          <th>
+            Meaning
+          </th>
+        </tr>
+        <tr>
+          <td>
+            ...
+          </td>
+          <td>
+          </td>
+          <td>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <ins>[[ModuleInstance]]</ins>
+          </td>
+          <td>
+            An instance of a %Module% constructor or *undefined*.
+          </td>
+          <td>
+            A Module Instance or *undefined* if no Module Instance is associated to this Record.
+          </td>
+        </tr>
+      </table>
     </emu-table>
 </emu-clause>
 
@@ -151,6 +192,10 @@ location: https://tc39.es/proposal-compartments/
           </tr>
       </table>
     </emu-table>
+
+    <emu-note type="editor">
+        A Module Source Record is the static portion of a Module Record. A refactor of the spec can make this separation more formal instead of just copying internal slot from one record to another.
+     </emu-note>
 </emu-clause>
 
 <emu-clause id="sec-import-calls">
@@ -345,7 +390,7 @@ location: https://tc39.es/proposal-compartments/
             </h1>
             <dl class="header">
               <dt>description</dt>
-              <dd>TODO: It provides the concrete Module Record subclass instance that corresponds to _specifier_ occurring within the module represented by _moduleRecord_.</dd>
+              <dd>It provides the concrete Module Record subclass instance that corresponds to _specifier_ occurring within the module represented by _moduleRecord_.</dd>
             </dl>
             <emu-alg>
               1. Assert: _moduleRecord_ is a Module Record.
@@ -358,8 +403,7 @@ location: https://tc39.es/proposal-compartments/
               1. Let _importHookPromise_ be ? PromiseResolve(%Promise%, _completion_.[[Value]]).
               1. Let _fulfilledClosure_ be a new Abstract Closure with parameters (_result_) that captures _moduleRecord_ and _promiseCapability_ and performs the following steps when called
                 1. Assert: Evaluate has already been invoked on _moduleRecord_ and successfully completed.
-                1. If _result_ is an Object that has a [[Module]] internal slot, then
-                  1. NOTE: The ImportHook can resolve to a namespace exotic object or a Module Instance.
+                1. If _result_ is an Object that has a [[ImportHook]] internal slot, then
                   1. Let _moduleRecord_ be _moduleInstanceOrNamespace_.[[Module]].
                   1. Perform ! Call(_promiseCapability_.[[Resolve]], *undefined*, &laquo; _moduleRecord_ &raquo;).
                 2. Else,
@@ -376,6 +420,9 @@ location: https://tc39.es/proposal-compartments/
 
             <emu-note>
                 ResolveModuleRecordDependency Abstract Operation can not be called more than once for arguments _moduleRecord_ and _specifier_ pair.
+            </emu-note>
+            <emu-note type="editor">
+               Import Reflection Proposal can provide the expansion mechanism to delegate to the host the resolution of a particular dependency, allowing the [[ImportHook]] to return a Module Instance rather than having to open up the ImportHook to support module namespace exotic objects.                  
             </emu-note>
         </emu-clause>
 
@@ -395,7 +442,7 @@ location: https://tc39.es/proposal-compartments/
     
             <ul>
               <li>
-                It must return ~unused~. Success or failure must instead be signaled as discussed below.
+                It must return ~unused~. It must call HostResolveImportedModule for every dependencies. Success or failure must instead be signaled as discussed below.
               </li>
               <li>
                 The host environment must conform to one of the two following sets of requirements:
@@ -405,8 +452,6 @@ location: https://tc39.es/proposal-compartments/
                   <dd>
                     <ul>
                       <li>At some future time, the host environment must perform FinishModuleDynamicImport(_moduleRecord_, _promiseCapability_, _promise_), where _promise_ is a Promise resolved with *undefined*.</li>
-    
-                      <li>Any subsequent call to HostResolveImportedModule after FinishModuleDynamicImport has completed, given the argument _moduleRecord_, must return a normal completion containing a module which has already been evaluated, i.e. whose Evaluate concrete method has already been called and returned a normal completion.</li>
                     </ul>
                   </dd>
     
@@ -426,12 +471,6 @@ location: https://tc39.es/proposal-compartments/
                 The operation must not call _promiseCapability_.[[Resolve]] or _promiseCapability_.[[Reject]], but instead must treat _promiseCapability_ as an opaque identifying value to be passed through to FinishModuleDynamicImport.
               </li>
             </ul>
-    
-            <emu-note type="editor">
-                This Abstract Operation is analogous to HostImportModuleDynamically. A future refactor can use this abstract operation as the foundation for other existings usages of HostImportModuleDynamically.
-            </emu-note>
-
-            <p>The actual process performed is host-defined, but typically consists of performing whatever operations are necessary to allow ResolveModuleRecordDependency to asynchronously retrieve the appropriate Module Record for each imported module, and then calling its Evaluate concrete method.</p>
           </emu-clause>
     
           <emu-clause id="sec-finishmoduledynamicimport" type="abstract operation">
@@ -466,7 +505,7 @@ location: https://tc39.es/proposal-compartments/
             </emu-alg>
 
             <emu-note type="editor">
-                This Abstract Operation is analogous to FinishDynamicImport. A future refactor can use this abstract operation as the foundation for other existings usages of FinishDynamicImport.
+                This Abstract Operation is analogous to FinishDynamicImport but for Module Records with an associated Module Instance.
             </emu-note>
           </emu-clause>
 
@@ -514,7 +553,7 @@ location: https://tc39.es/proposal-compartments/
             <p>When the `Module` function is called with the arguments _moduleSource_, _importHook_ and _importMeta_, the following steps are taken:</p>
             <emu-alg>
                 1. If NewTarget is *undefined*, throw a *TypeError* exception.
-                1. If Type(_moduleSource_) is not Callable, throw a *TypeError* exception.
+                1. If Type(_moduleSource_) is not Object, throw a *TypeError* exception.
                 1. If Type(_importHook_) is not Callable, throw a *TypeError* exception.
                 1. If Type(_importMeta_) is not Object, throw a *TypeError* exception.
                 1. If IsCallable(_importHook_) is *false*, throw a *TypeError* exception.
@@ -595,8 +634,8 @@ location: https://tc39.es/proposal-compartments/
                     </tr>
                     <tr>
                         <td>[[ModuleSourceInstance]]</td>
-                        <td>ModuleSource Instance</td>
-                        <td>The Source Text Module Record that represents this Module Instance.</td>
+                        <td>ModuleSource Instance or *null*</td>
+                        <td>The Source Text Module Record that represents this Module Instance. *null* if this Module Instance has not a source associated to it.</td>
                     </tr>
                     <tr>
                         <td>[[ImportHook]]</td>
@@ -606,6 +645,9 @@ location: https://tc39.es/proposal-compartments/
                 </tbody>
             </table>
         </emu-table>
+        <emu-note type="editor">
+            A Module Instance without a [[ModuleSourceInstance]] value associated to it is a Module Instance created via the Import Reflection API where the host decides that the source is not available. E.g.: `fs` module or any built-in module in the future.
+        </emu-note>
     </emu-clause>
 </emu-clause>
 
