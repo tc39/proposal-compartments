@@ -445,7 +445,7 @@ location: https://tc39.es/proposal-compartments/
     
             <ul>
               <li>
-                It must call ResolveModuleRecordDependency for every (_moduleRecord_, _specifierString_) pair, where _specifierString_ are the entries of _moduleRecord.[[RequestedModules]] for each recursively resolved Cyclic Module Record _moduleRecord_. ResolveModuleRecordDependency must not be called twice with the same (_moduleRecord_, _specifierString_) pair: instead, the result of the first call should be cached and reused as the result of successive resolutions.
+                It must call ResolveModuleRecordDependency for every (_moduleRecord_, _specifierString_) pair, where _specifierString_ are the entries of _moduleRecord.[[RequestedModules]] for each recursively resolved Cyclic Module Record _moduleRecord_. ResolveModuleRecordDependency must not be called twice with the same (_moduleRecord_, _specifierString_) pair: instead, the result of the first call should be cached and reused as the result of successive resolutions. The resolution for a given pair must not be result of the same Module Record.
               </li>
               <li>
                 It must return ~unused~. Success or failure must instead be signaled as discussed below.
@@ -517,34 +517,6 @@ location: https://tc39.es/proposal-compartments/
                 This Abstract Operation is analogous to FinishDynamicImport but for Module Records with an associated Module Instance.
             </emu-note>
           </emu-clause>
-
-
-        <emu-clause id="sec-createcustomimportmeta" type="abstract operation">
-            <h1>
-                CreateCustomImportMeta (
-                    _module_: A Module Record,
-                    _meta_: An object,
-                ): ~unused~
-            </h1>
-            <dl class="header">
-              <dt>description</dt>
-              <dd>From a given _importMeta_, this abstract operation creates a List of Records for the qualifying values that must be present when a module body accesses import.meta syntax.</dd>
-            </dl>
-            <emu-alg>
-                1. Assert: _meta_ is an Object.
-                1. Assert: _module_ is a Module Record.
-                1. Assert: _module_.[[ImportMeta]] is ~empty~.
-                1. Let _importMeta_ to OrdinaryObjectCreate(*null*).
-                1. Let _keys_ be ? <emu-meta effects="user-code">_from_.[[OwnPropertyKeys]]()</emu-meta>.
-                1. For each element _nextKey_ of _keys_, do
-                  1. Let _desc_ be ? <emu-meta effects="user-code">_from_.[[GetOwnProperty]]</emu-meta>(_nextKey_).
-                  1. If _desc_ is not *undefined* and _desc_.[[Enumerable]] is *true*, then
-                    1. Let _nextValue_ be ? Get(_from_, _nextKey_).
-                    1. Perform ! CreateDataPropertyOrThrow(_importMeta_, _nextKey_,_nextValue_).
-                1. Perform HostFinalizeImportMeta(_importMeta_, _module_).
-                1. Set _module_.[[ImportMeta]] to _importMeta_.
-            </emu-alg>
-        </emu-clause>
     </emu-clause>
 
     <emu-clause id="sec-module-constructor">
@@ -558,25 +530,28 @@ location: https://tc39.es/proposal-compartments/
         </ul>
 
         <emu-clause id="sec-module">
-            <h1>Module ( _moduleSource_, _importHook_, _importMeta_ )</h1>
-            <p>When the `Module` function is called with the arguments _moduleSource_, _importHook_ and _importMeta_, the following steps are taken:</p>
+            <h1>Module ( _moduleSource_, _referral_, _importHook_ [, _importMeta_ ] )</h1>
+            <p>When the `Module` function is called with the arguments _moduleSource_, _referral_, _importHook_ and _importMeta_, the following steps are taken:</p>
             <emu-alg>
                 1. If NewTarget is *undefined*, throw a *TypeError* exception.
                 1. If Type(_moduleSource_) is not Object, throw a *TypeError* exception.
                 1. If Type(_importHook_) is not Callable, throw a *TypeError* exception.
-                1. If Type(_importMeta_) is not Object, throw a *TypeError* exception.
+                1. If _importMeta_ is *undefined*, then
+                  1. Set _importMeta_ to *null*.
+                1. Else, if Type(_importMeta_) is not Object, then
+                  1. Throw a *TypeError* exception.
                 1. If IsCallable(_importHook_) is *false*, throw a *TypeError* exception.
                 1. Perform ? RequireInternalSlot(_moduleSource_, [[ModuleSource]]).
                 1. Let _O_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%Module.prototype%"*, « [[Module]], [[ModuleSourceInstance]], [[ImportHook]] »).
                 1. Let _moduleRecord_ to ! CreateModuleRecord(_moduleSource_.[[ModuleSource]]).
                 1. Set _moduleRecord_.[[ModuleInstance]] to _O_.
-                1. Let _importHookClosure_ be a new Abstract Closure with parameters (_specifier_) that captures _importHook_ and _importMeta_ and performs the following steps when called
+                1. Set _moduleRecord_.[[ImportMeta]] to _importMeta_.
+                1. Let _importHookClosure_ be a new Abstract Closure with parameters (_specifier_) that captures _importHook_ and _referral_ and performs the following steps when called
                   1. Assert: Type(_specifier_) is String.
-                  1. return ? Call(_importHook_, *undefined*, « _specifier_, _importMeta_ »).
+                  1. return ? Call(_importHook_, *undefined*, « _specifier_, _referral_ »).
                 1. Set _O_.[[Module]] to _moduleRecord_.
                 1. Set _O_.[[ModuleSourceInstance]] to _moduleSource_.
                 1. Set _O_.[[ImportHook]] be CreateBuiltinFunction(_importHookClosure_, 1, *""*, &laquo; &raquo;).
-                1. Perform ? CreateCustomImportMeta(_moduleRecord_, _importMeta_).
                 1. Return _O_.
             </emu-alg>
         </emu-clause>
