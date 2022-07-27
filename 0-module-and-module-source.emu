@@ -445,7 +445,10 @@ location: https://tc39.es/proposal-compartments/
     
             <ul>
               <li>
-                It must return ~unused~. It must call ResolveModuleRecordDependency for every unique |ModuleSpecifier| associated to the _moduleRecord_. Success or failure must instead be signaled as discussed below.
+                It must call ResolveModuleRecordDependency for every (_moduleRecord_, _specifierString_) pair, where _specifierString_ are the entries of _moduleRecord.[[RequestedModules]] for each recursively resolved Cyclic Module Record _moduleRecord_. ResolveModuleRecordDependency must not be called twice with the same (_moduleRecord_, _specifierString_) pair: instead, the result of the first call should be cached and reused as the result of successive resolutions.
+              </li>
+              <li>
+                It must return ~unused~. Success or failure must instead be signaled as discussed below.
               </li>
               <li>
                 The host environment must conform to one of the two following sets of requirements:
