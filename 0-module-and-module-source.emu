@@ -324,6 +324,11 @@ location: https://tc39.es/proposal-compartments/
             <li>is an ordinary object.</li>
         </ul>
 
+        <emu-clause id="sec-modulesource.prototype.constructor">
+            <h1>ModuleSource.prototype.constructor</h1>
+            <p>The initial value of `ModuleSource.prototype.constructor` is %ModuleSource%.</p>
+        </emu-clause>
+
         <emu-clause id="sec-modulesource.prototype-@@tostringtag">
             <h1>ModuleSource.prototype [ @@toStringTag ]</h1>
             <p>The initial value of the @@toStringTag property is the String value *"ModuleSource"*.</p>
@@ -580,6 +585,11 @@ location: https://tc39.es/proposal-compartments/
             <li>is an ordinary object.</li>
             <li>does not have a [[Module]] or any other of the internal slots that are specific to _Realm_ instance objects.</li>
         </ul>
+
+        <emu-clause id="sec-module.prototype.constructor">
+            <h1>Module.prototype.constructor</h1>
+            <p>The initial value of `Module.prototype.constructor` is %Module%.</p>
+        </emu-clause>
 
         <emu-clause id="sec-module.prototype.source">
             <h1>get Module.prototype.source</h1>
