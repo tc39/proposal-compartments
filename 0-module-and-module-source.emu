@@ -445,7 +445,7 @@ location: https://tc39.es/proposal-compartments/
     
             <ul>
               <li>
-                It must call ResolveModuleRecordDependency for every (_moduleRecord_, _specifierString_) pair, where _specifierString_ are the entries of _moduleRecord.[[RequestedModules]] for each recursively resolved Cyclic Module Record _moduleRecord_. ResolveModuleRecordDependency must not be called twice with the same (_moduleRecord_, _specifierString_) pair: instead, the result of the first call should be cached and reused as the result of successive resolutions. The resolution for a given pair must not be result of the same Module Record.
+                It must call ResolveModuleRecordDependency for every (_moduleRecord_, _specifierString_) pair, where _specifierString_ are the entries of _moduleRecord_.[[RequestedModules]] for each recursively resolved Cyclic Module Record _moduleRecord_. ResolveModuleRecordDependency must not be called twice with the same (_moduleRecord_, _specifierString_) pair: instead, the result of the first call should be cached and reused as the result of successive resolutions.
               </li>
               <li>
                 It must return ~unused~. Success or failure must instead be signaled as discussed below.
@@ -535,12 +535,11 @@ location: https://tc39.es/proposal-compartments/
             <emu-alg>
                 1. If NewTarget is *undefined*, throw a *TypeError* exception.
                 1. If Type(_moduleSource_) is not Object, throw a *TypeError* exception.
-                1. If Type(_importHook_) is not Callable, throw a *TypeError* exception.
+                1. If IsCallable(_importHook_) is *false*, throw a *TypeError* exception.
                 1. If _importMeta_ is *undefined*, then
                   1. Set _importMeta_ to *null*.
                 1. Else, if Type(_importMeta_) is not Object, then
                   1. Throw a *TypeError* exception.
-                1. If IsCallable(_importHook_) is *false*, throw a *TypeError* exception.
                 1. Perform ? RequireInternalSlot(_moduleSource_, [[ModuleSource]]).
                 1. Let _O_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%Module.prototype%"*, « [[Module]], [[ModuleSourceInstance]], [[ImportHook]] »).
                 1. Let _moduleRecord_ to ! CreateModuleRecord(_moduleSource_.[[ModuleSource]]).
