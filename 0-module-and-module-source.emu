@@ -88,7 +88,7 @@ location: https://tc39.es/proposal-compartments/
 
     <p>A <dfn id="modulesource-record" variants="Module Source Records">Module Source Record</dfn> is used to represent information about a module source that was defined from ECMAScript source text (<emu-xref href="#sec-ecmascript-language-source-code"></emu-xref>) that was parsed using the goal symbol |Module|. Its fields contain digested information about the names that are imported and exported by the module.</p>
 
-    <p>Module Source Records have the fields listed in <emu-xref href="#table-fields-of-module-source-records"></emu-xref>. Each of these fields is initially set in ParseModuleSource.</p>
+    <p>Module Source Records have the fields listed in <emu-xref href="#table-fields-of-module-source-records"></emu-xref>. Each of these fields is initially set in CreateModuleSourceRecord.</p>
     <emu-table id="table-fields-of-module-source-records" caption="Fields of Module Source Records">
       <table>
         <tr>
@@ -228,19 +228,17 @@ location: https://tc39.es/proposal-compartments/
     <emu-clause id="sec-modulesource-abstracts">
         <h1>ModuleSource Abstract Operations</h1>
 
-        <emu-clause id="sec-parsemodulesource" type="abstract operation">
+        <emu-clause id="sec-createmodulesourcerecord" type="abstract operation">
             <h1>
-              ParseModuleSource (
-                _sourceText_: ECMAScript source text,
-              ): a Module Source Record or throw a *SyntaxError* object
+              CreateModuleSourceRecord (
+                _body_: Parse Node,
+              ): a Module Source Record
             </h1>
             <dl class="header">
               <dt>description</dt>
-              <dd>It creates a Module Source Record based upon the result of parsing _sourceText_ as a |Module|.</dd>
+              <dd>It creates a Module Source Record based upon a |Module| Parse Node.</dd>
             </dl>
             <emu-alg>
-              1. Let _body_ be ParseText(_sourceText_, |Module|).
-              1. If _body_ is a List of errors, throw a *SyntaxError* exception.
               1. Let _requestedModules_ be the ModuleRequests of _body_.
               1. Let _importEntries_ be ImportEntries of _body_.
               1. Let _importedBoundNames_ be ImportedLocalNames(_importEntries_).
@@ -294,7 +292,9 @@ location: https://tc39.es/proposal-compartments/
             <emu-alg>
                 1. If NewTarget is *undefined*, throw a *TypeError* exception.
                 1. Let _O_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%ModuleSource.prototype%"*, « [[ModuleSource]] »).
-                1. Set _O_.[[ModuleSource]] to ? ParseModuleSource(_sourceText_).
+                1. Let _body_ be ParseText(_sourceText_, |Module|).
+                1. If _body_ is a List of errors, throw a *SyntaxError* exception.
+                1. Set _O_.[[ModuleSource]] to ? CreateModuleSourceRecord(_body_).
                 1. Return _O_.
             </emu-alg>
         </emu-clause>
@@ -411,10 +411,12 @@ location: https://tc39.es/proposal-compartments/
               1. IfAbruptRejectPromise(_completion_, _promiseCapability_).
               1. Let _importHookPromise_ be ? PromiseResolve(%Promise%, _completion_.[[Value]]).
               1. Let _fulfilledClosure_ be a new Abstract Closure with parameters (_result_) that captures _moduleRecord_ and _promiseCapability_ and performs the following steps when called
-                1. If _result_ is an Object that has a [[ImportHook]] internal slot, then
+                1. If _result_ is a Module Record, then
+                  1. Perform ! Call(_promiseCapability_.[[Resolve]], *undefined*, &laquo; _result_ &raquo;).
+                1. Else, if _result_ is an Object that has a [[ImportHook]] internal slot, then
                   1. Let _moduleRecord_ be _result_.[[Module]].
                   1. Perform ! Call(_promiseCapability_.[[Resolve]], *undefined*, &laquo; _moduleRecord_ &raquo;).
-                2. Else,
+                1. Else,
                   1. Perform ! Call(_promiseCapability_.[[Reject]], *undefined*, &laquo; a newly created *TypeError* object &raquo;).
                 1. Return ~unused~.
               1. Let _onFulfilled_ be CreateBuiltinFunction(_fulfilledClosure_, 0, *""*, &laquo; &raquo;).
