@@ -630,7 +630,7 @@ location: https://tc39.es/proposal-compartments/
                     <tr>
                         <td>[[ModuleSourceInstance]]</td>
                         <td>ModuleSource Instance or *null*</td>
-                        <td>The Source Text Module Record that represents this Module Instance. *null* if this Module Instance has not a source associated to it.</td>
+                        <td>The ModuleSource Instance associated to Module Instance. *null* if this Module Instance has not a source associated to it.</td>
                     </tr>
                     <tr>
                         <td>[[ImportHook]]</td>
