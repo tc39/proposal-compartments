@@ -291,8 +291,9 @@ location: https://tc39.es/proposal-compartments/
             <p>When the `ModuleSource` function is called with argument _sourceText_, the following steps are taken:</p>
             <emu-alg>
                 1. If NewTarget is *undefined*, throw a *TypeError* exception.
+                1. Let _sourceTextString_ be ? ToString(_sourceText_).
+                1. Let _body_ be ParseText(StringToCodePoints(_sourceTextString_), |Module|).
                 1. Let _O_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%ModuleSource.prototype%"*, « [[ModuleSource]] »).
-                1. Let _body_ be ParseText(_sourceText_, |Module|).
                 1. If _body_ is a List of errors, throw a *SyntaxError* exception.
                 1. Set _O_.[[ModuleSource]] to ? CreateModuleSourceRecord(_body_).
                 1. Return _O_.
@@ -367,6 +368,7 @@ location: https://tc39.es/proposal-compartments/
         <emu-clause id="sec-createmodulerecord" type="abstract operation">
             <h1>
                 CreateModuleRecord (
+                    _realm_: a Realm Record,
                     _moduleSource_: a Module Source Record
                 ): a Source Text Module Record
             </h1>
@@ -375,6 +377,7 @@ location: https://tc39.es/proposal-compartments/
                 <dd>It creates a Source Text Module Record based upon the result of a previously parsed _sourceText_ as a |Module| associated to the provided Module Source Record.</dd>
             </dl>
             <emu-alg>
+              1. Assert: _realm_ is a Realm Record.
               1. Assert: _moduleSource_ is a Module Source Record.
               1. Let _async_ be _sourceModule_.[[HasTLA]].
               1. Let _body_ be _sourceModule_.[[ECMAScriptCode]].
@@ -384,7 +387,6 @@ location: https://tc39.es/proposal-compartments/
               1. Let _indirectExportEntries_ be _sourceModule_.[[IndirectExportEntries]].
               1. Let _starExportEntries_ be _sourceModule_.[[StarExportEntries]].
               1. Let _hostDefined_ be _sourceModule_.[[HostDefined]].
-              1. Let _realm_ be the current Realm Record.
               1. Return Source Text Module Record { [[Realm]]: _realm_, [[Environment]]: ~empty~, [[Namespace]]: ~empty~, [[CycleRoot]]: ~empty~, [[HasTLA]]: _async_, [[AsyncEvaluation]]: *false*, [[TopLevelCapability]]: ~empty~, [[AsyncParentModules]]: &laquo; &raquo;, [[PendingAsyncDependencies]]: ~empty~, [[Status]]: ~unlinked~, [[EvaluationError]]: ~empty~, [[HostDefined]]: _hostDefined_, [[ECMAScriptCode]]: _body_, [[Context]]: ~empty~, [[ImportMeta]]: ~empty~, [[RequestedModules]]: _requestedModules_, [[ImportEntries]]: _importEntries_, [[LocalExportEntries]]: _localExportEntries_, [[IndirectExportEntries]]: _indirectExportEntries_, [[StarExportEntries]]: _starExportEntries_, [[DFSIndex]]: ~empty~, [[DFSAncestorIndex]]: ~empty~, [[ModuleInstance]]: *undefined* }.
             </emu-alg>
         </emu-clause>
@@ -548,8 +550,11 @@ location: https://tc39.es/proposal-compartments/
                 1. Else, if Type(_importMeta_) is not Object, then
                   1. Throw a *TypeError* exception.
                 1. Perform ? RequireInternalSlot(_moduleSource_, [[ModuleSource]]).
+                1. Let _evalRealm_ be the current Realm Record.
+                1. NOTE: Module Instances created from this constructor must use a valid source.
+                1. Perform ? HostEnsureCanCompileStrings(_evalRealm_).
                 1. Let _O_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%Module.prototype%"*, « [[Module]], [[ModuleSourceInstance]], [[ImportHook]] »).
-                1. Let _moduleRecord_ to ! CreateModuleRecord(_moduleSource_.[[ModuleSource]]).
+                1. Let _moduleRecord_ to ! CreateModuleRecord(_evalRealm_, _moduleSource_.[[ModuleSource]]).
                 1. Set _moduleRecord_.[[ModuleInstance]] to _O_.
                 1. Set _moduleRecord_.[[ImportMeta]] to _importMeta_.
                 1. Let _importHookClosure_ be a new Abstract Closure with parameters (_specifier_) that captures _importHook_ and _referral_ and performs the following steps when called
