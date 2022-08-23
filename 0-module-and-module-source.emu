@@ -464,7 +464,7 @@ location: https://tc39.es/proposal-compartments/
                 ResolveModuleRecordDependency Abstract Operation can not be called more than once for arguments _moduleRecord_ and _specifier_ pair.
             </emu-note>
             <emu-note type="editor">
-               Import Reflection Proposal can provide the expansion mechanism to delegate to the host the resolution of a particular dependency, allowing the [[ImportHook]] to return a Module Instance rather than having to open up the ImportHook to support module namespace exotic objects.                  
+               Import Reflection Proposal can provide the expansion mechanism to delegate to the host the resolution of a particular dependency, allowing the [[ImportHook]] to return a Module Instance rather than having to open up the ImportHook to support module namespace exotic objects.
             </emu-note>
         </emu-clause>
 
@@ -481,7 +481,7 @@ location: https://tc39.es/proposal-compartments/
               <dd>It performs any necessary setup work in order to make available the module corresponding to module represented by _moduleRecord_. It then performs FinishModuleDynamicImport to finish the dynamic import process.</dd>
             </dl>
             <p>An implementation of HostImportModuleRecordDynamically must conform to the following requirements:</p>
-    
+
             <ul>
               <li>
                 It must call ResolveModuleRecordDependency for every (_moduleRecord_, _specifierString_) pair, where _specifierString_ are the entries of _moduleRecord_.[[RequestedModules]] for each recursively resolved Cyclic Module Record _moduleRecord_. ResolveModuleRecordDependency must not be called twice with the same (_moduleRecord_, _specifierString_) pair: instead, the result of the first call should be cached and reused as the result of successive resolutions.
@@ -493,15 +493,15 @@ location: https://tc39.es/proposal-compartments/
                 The host environment must conform to one of the two following sets of requirements:
                 <dl>
                   <dt>Success path</dt>
-    
+
                   <dd>
                     <ul>
                       <li>At some future time, the host environment must perform FinishModuleDynamicImport(_moduleRecord_, _promiseCapability_, _promise_), where _promise_ is a Promise resolved with *undefined*.</li>
                     </ul>
                   </dd>
-    
+
                   <dt>Failure path</dt>
-    
+
                   <dd>
                     <ul>
                       <li>At some future time, the host environment must perform FinishModuleDynamicImport(_moduleRecord_, _promiseCapability_, _promise_), where _promise_ is a Promise rejected with an error representing the cause of failure.</li>
@@ -520,7 +520,7 @@ location: https://tc39.es/proposal-compartments/
                 This host operation is hand-waving, similar to FinishDynamicImport. This will be addressed on a separate refactor that is orthogonal to this proposal.
             </emu-note>
           </emu-clause>
-    
+
           <emu-clause id="sec-finishmoduledynamicimport" type="abstract operation">
             <h1>
               FinishModuleDynamicImport (
@@ -573,13 +573,11 @@ location: https://tc39.es/proposal-compartments/
             <p>When the `Module` function is called with the arguments _moduleSource_, _referral_, _importHook_ and _importMeta_, the following steps are taken:</p>
             <emu-alg>
                 1. If NewTarget is *undefined*, throw a *TypeError* exception.
-                1. If Type(_moduleSource_) is not Object, throw a *TypeError* exception.
-                _importHook_
                 1. Perform ? RequireInternalSlot(_moduleSource_, [[ModuleSource]]).
                 1. Let _moduleRecord_ to ! CreateModuleRecord(_moduleSource_.[[ModuleSource]]).
                 1. If Type(_handler_) is Object, then
-                  1. If _handler_ is *null, throw a TypeError exception.
-                  1. Let _importHook_ be ? GetMethod(handler, "importHook").
+                  1. If _handler_ is *null*, throw a *TypeError* exception.
+                  1. Let _importHook_ be ? GetMethod(_handler_, *"importHook"*).
                   1. If _importHook_ is *undefined*, then
                     1. Let _importHookClosure_ be a new Abstract Closure with parameters (_specifier_) that captures _moduleRecord_ and performs the following steps when called
                       1. Assert: Type(_specifier_) is String.
@@ -591,7 +589,7 @@ location: https://tc39.es/proposal-compartments/
                     1. Let _importHookClosure_ be a new Abstract Closure with parameters (_specifier_) that captures _importHook_ and _handler_ and performs the following steps when called
                       1. Assert: Type(_specifier_) is String.
                       1. return ? Call(_importHook_, _handler_, « _specifier_ »).
-                  1. Let _importMetaHook_ be ? GetMethod(handler, "importMetaHook").
+                  1. Let _importMetaHook_ be ? GetMethod(handler, *"importMetaHook"*).
                   1. If _importMetaHook_ is *undefined*, then
                     1. Let _importHookClosure_ be a new Abstract Closure with parameters (_importMeta_) that captures _moduleRecord_ and performs the following steps when called
                       1. NOTE: Default import.meta hook.
