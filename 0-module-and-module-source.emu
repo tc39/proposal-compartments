@@ -96,18 +96,16 @@ location: https://tc39.es/proposal-compartments/
       1. Let _importMeta_ be _module_.[[ImportMeta]].
       1. If _importMeta_ is ~empty~, then
         1. Set _importMeta_ to OrdinaryObjectCreate(*null*).
-        1. <ins>If _module_'s [[ModuleInstance]] internal slot value is *undefined*, then</ins>
+        1. <ins>If _module_.[[ModuleInstance]] is *undefined*, then</ins>
           1. Let _importMetaValues_ be HostGetImportMetaProperties(_module_).
           1. For each Record { [[Key]], [[Value]] } _p_ of _importMetaValues_, do
             1. Perform ! CreateDataPropertyOrThrow(_importMeta_, _p_.[[Key]], _p_.[[Value]]).
           1. Perform HostFinalizeImportMeta(_importMeta_, _module_).
-          1. Set _module_.[[ImportMeta]] to _importMeta_.
-          1. Return _importMeta_.
         1. <ins>Else,</ins>
           1. <ins>Let _importMetaHook_ be _module_.[[ModuleInstance]].[[ImportMetaHook]].</ins>
           1. <ins>Perform ? Call(_importMetaHook_, *undefined*, &laquo; _importMeta_ &raquo;).</ins>
-          1. <ins>Set _module_.[[ImportMeta]] to _importMeta_.</ins>
-          1. <ins>Return _importMeta_.</ins>
+        1. Set _module_.[[ImportMeta]] to _importMeta_.
+        1. Return _importMeta_.
       1. Else,
         1. Assert: Type(_importMeta_) is Object.
         1. Return _importMeta_.
@@ -569,7 +567,7 @@ location: https://tc39.es/proposal-compartments/
         </ul>
 
         <emu-clause id="sec-module">
-            <h1>Module ( _moduleSource_, _handler_ [, _importMeta_ ] )</h1>
+            <h1>Module ( _moduleSource_, _handler_ )</h1>
             <p>When the `Module` function is called with the arguments _moduleSource_, _referral_, _importHook_ and _importMeta_, the following steps are taken:</p>
             <emu-alg>
                 1. If NewTarget is *undefined*, throw a *TypeError* exception.
@@ -583,6 +581,7 @@ location: https://tc39.es/proposal-compartments/
                       1. Assert: Type(_specifier_) is String.
                       1. NOTE: Default import hook.
                       1. Let _promiseCapability_ be ! NewPromiseCapability(%Promise%).
+                      1. TODO: This links/evaluates the imported module, but it should return it in it's initial status (if it was not already linked/evaluated for other reasons).
                       1. Perform HostImportModuleDynamically(_moduleRecord_, _specifier_, _promiseCapability_).
                       1. Return _promiseCapability_.[[Promise]].
                   1. Else,
