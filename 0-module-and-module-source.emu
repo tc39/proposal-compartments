@@ -575,8 +575,8 @@ location: https://tc39.es/proposal-compartments/
                 1. If NewTarget is *undefined*, throw a *TypeError* exception.
                 1. Perform ? RequireInternalSlot(_moduleSource_, [[ModuleSource]]).
                 1. Let _moduleRecord_ to ! CreateModuleRecord(_moduleSource_.[[ModuleSource]]).
+                1. If _handler_ is *null*, throw a *TypeError* exception.
                 1. If Type(_handler_) is Object, then
-                  1. If _handler_ is *null*, throw a *TypeError* exception.
                   1. Let _importHook_ be ? GetMethod(_handler_, *"importHook"*).
                   1. If _importHook_ is *undefined*, then
                     1. Let _importHookClosure_ be a new Abstract Closure with parameters (_specifier_) that captures _moduleRecord_ and performs the following steps when called
