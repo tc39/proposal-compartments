@@ -96,14 +96,15 @@ location: https://tc39.es/proposal-compartments/
       1. Let _importMeta_ be _module_.[[ImportMeta]].
       1. If _importMeta_ is ~empty~, then
         1. Set _importMeta_ to OrdinaryObjectCreate(*null*).
-        1. <ins>If _module_.[[ModuleInstance]] is *undefined*, then</ins>
+        1. <ins>If _module_.[[ModuleInstance]] is *undefined* or _module_.[[ModuleInstance]].[[ImportMetaHook]] is *undefined*, then</ins>
           1. Let _importMetaValues_ be HostGetImportMetaProperties(_module_).
           1. For each Record { [[Key]], [[Value]] } _p_ of _importMetaValues_, do
             1. Perform ! CreateDataPropertyOrThrow(_importMeta_, _p_.[[Key]], _p_.[[Value]]).
           1. Perform HostFinalizeImportMeta(_importMeta_, _module_).
         1. <ins>Else,</ins>
           1. <ins>Let _importMetaHook_ be _module_.[[ModuleInstance]].[[ImportMetaHook]].</ins>
-          1. <ins>Perform ? Call(_importMetaHook_, *undefined*, &laquo; _importMeta_ &raquo;).</ins>
+          1. <ins>Let _handler_ be _module_.[[ModuleInstance]].[[HandlerValue]].</ins>
+          1. <ins>Perform ? Call(_importMetaHook_, _handler_, &laquo; _importMeta_ &raquo;).</ins>
         1. Set _module_.[[ImportMeta]] to _importMeta_.
         1. Return _importMeta_.
       1. Else,
@@ -437,7 +438,8 @@ location: https://tc39.es/proposal-compartments/
               1. Assert: ResolveModuleRecordDependency has not been invoked with _moduleRecord_ and _specifier_ pair.
               1. Let _moduleInstance_ be _moduleRecord_.[[ModuleInstance]].
               1. Let _importHook_ be _moduleInstance_.[[ImportHook]].
-              1. Let _completion_ be Completion(Call(_importHook_, *undefined*, « _specifier_ »).
+              1. Let _handler_ be _moduleInstance_.[[HandlerValue]].
+              1. Let _completion_ be Completion(Call(_importHook_, _handler_, « _specifier_ »).
               1. IfAbruptRejectPromise(_completion_, _promiseCapability_).
               1. Let _importHookPromise_ be ? PromiseResolve(%Promise%, _completion_.[[Value]]).
               1. Let _fulfilledClosure_ be a new Abstract Closure with parameters (_result_) that captures _moduleRecord_ and _promiseCapability_ and performs the following steps when called
@@ -584,28 +586,14 @@ location: https://tc39.es/proposal-compartments/
                       1. TODO: This links/evaluates the imported module, but it should return it in it's initial status (if it was not already linked/evaluated for other reasons).
                       1. Perform HostImportModuleDynamically(_moduleRecord_, _specifier_, _promiseCapability_).
                       1. Return _promiseCapability_.[[Promise]].
-                  1. Else,
-                    1. Let _importHookClosure_ be a new Abstract Closure with parameters (_specifier_) that captures _importHook_ and _handler_ and performs the following steps when called
-                      1. Assert: Type(_specifier_) is String.
-                      1. return ? Call(_importHook_, _handler_, « _specifier_ »).
+                    1. Let _importHook_ be CreateBuiltinFunction(_importHookClosure_, 1, *""*, &laquo; &raquo;).
                   1. Let _importMetaHook_ be ? GetMethod(handler, *"importMetaHook"*).
-                  1. If _importMetaHook_ is *undefined*, then
-                    1. Let _importHookClosure_ be a new Abstract Closure with parameters (_importMeta_) that captures _moduleRecord_ and performs the following steps when called
-                      1. NOTE: Default import.meta hook.
-                      1. Let _importMetaValues_ be HostGetImportMetaProperties(_moduleRecord_).
-                      1. For each Record { [[Key]], [[Value]] } _p_ of _importMetaValues_, do
-                        1. Perform ! CreateDataPropertyOrThrow(_importMeta_, _p_.[[Key]], _p_.[[Value]]).
-                      1. Perform HostFinalizeImportMeta(_importMeta_, _moduleRecord_).
-                      1. Set _moduleRecord_.[[ImportMeta]] to _importMeta_.
-                      1. Return _importMeta_.
-                  1. Else,
-                    1. Let _importHookClosure_ be a new Abstract Closure with parameters (_importMeta_) that captures _importMetaHook_ and _handler_ and performs the following steps when called
-                      1. return ? Call(_importMetaHook_, _handler_, &laquo; _importMeta_ &raquo;).
-                1. Let _O_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%Module.prototype%"*, « [[Module]], [[ModuleSourceInstance]], [[HooksThisValue]], [[ImportHook]], [[ImportMetaHook]] »).
+                  1. If IsCallable(_importMetaHook_) is *false*, throw a *TypeError* exception.
+                1. Let _O_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%Module.prototype%"*, « [[Module]], [[ModuleSourceInstance]], [[HandlerValue]], [[ImportHook]], [[ImportMetaHook]] »).
                 1. Set _O_.[[ModuleSourceInstance]] to _moduleSource_.
-                1. Set _O_.[[ImportHook]] be CreateBuiltinFunction(_importHookClosure_, 1, *""*, &laquo; &raquo;).
-                1. Set _O_.[[ImportMetaHook]] be CreateBuiltinFunction(_importMetaHookClosure_, 0, *""*, &laquo; &raquo;).
-                1. Set _O_.[[HooksThisValue]] be _handler_.
+                1. Set _O_.[[HandlerValue]] be _handler_.
+                1. Set _O_.[[ImportHook]] be _importHook_.
+                1. Set _O_.[[ImportMetaHook]] be _importMetaHook_.
                 1. Set _moduleRecord_.[[ModuleInstance]] to _O_.
                 1. Set _O_.[[Module]] to _moduleRecord_.
                 1. Return _O_.
@@ -683,7 +671,7 @@ location: https://tc39.es/proposal-compartments/
                         <td>The ModuleSource Instance associated to Module Instance. *null* if this Module Instance has not a source associated to it.</td>
                     </tr>
                     <tr>
-                        <td>[[HooksThisValue]]</td>
+                        <td>[[HandlerValue]]</td>
                         <td>an ECMAScript language value</td>
                         <td>This is the *this* value used for invocation of the hook functions.</td>
                     </tr>
@@ -694,8 +682,8 @@ location: https://tc39.es/proposal-compartments/
                     </tr>
                     <tr>
                         <td>[[ImportMetaHook]]</td>
-                        <td>a callable Object</td>
-                        <td>The callable Object associated to the [[Module]] record to provide import.meta value.</td>
+                        <td>an Object or *undefined*</td>
+                        <td>If the value is an Object it must be a function object, defaults to *undefined*. The function can augment the `import.meta` object provided as the first argument.</td>
                     </tr>
                 </tbody>
             </table>
