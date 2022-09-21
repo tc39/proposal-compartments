@@ -434,14 +434,22 @@ location: https://tc39.es/proposal-compartments/
             </dl>
             <emu-alg>
               1. Assert: _moduleRecord_ is a Module Record.
+              1. Assert: Type(_specifier_) is String.
               1. Assert: _moduleRecord_.[[ModuleInstance]] is an Object.
               1. Assert: ResolveModuleRecordDependency has not been invoked with _moduleRecord_ and _specifier_ pair.
               1. Let _moduleInstance_ be _moduleRecord_.[[ModuleInstance]].
               1. Let _importHook_ be _moduleInstance_.[[ImportHook]].
-              1. Let _handler_ be _moduleInstance_.[[HandlerValue]].
-              1. Let _completion_ be Completion(Call(_importHook_, _handler_, « _specifier_ »).
-              1. IfAbruptRejectPromise(_completion_, _promiseCapability_).
-              1. Let _importHookPromise_ be ? PromiseResolve(%Promise%, _completion_.[[Value]]).
+              1. If _importHook_ is *undefined*, then
+                1. NOTE: Default import hook.
+                1. Let _innerPromiseCapability_ be ! NewPromiseCapability(%Promise%).
+                1. TODO: This links/evaluates the imported module, but it should return it in it's initial status (if it was not already linked/evaluated for other reasons).
+                1. Perform HostImportModuleDynamically(_moduleRecord_, _specifier_, _innerPromiseCapability_).
+                1. Let _importHookPromise_ be _innerPromiseCapability_.[[Promise]].
+              1. Else,
+                1. Let _handler_ be _moduleInstance_.[[HandlerValue]].
+                1. Let _completion_ be Completion(Call(_importHook_, _handler_, « _specifier_ »).
+                1. IfAbruptRejectPromise(_completion_, _promiseCapability_).
+                1. Let _importHookPromise_ be ? PromiseResolve(%Promise%, _completion_.[[Value]]).
               1. Let _fulfilledClosure_ be a new Abstract Closure with parameters (_result_) that captures _moduleRecord_ and _promiseCapability_ and performs the following steps when called
                 1. If _result_ is a Module Record, then
                   1. Perform ! Call(_promiseCapability_.[[Resolve]], *undefined*, &laquo; _result_ &raquo;).
@@ -578,17 +586,9 @@ location: https://tc39.es/proposal-compartments/
                 1. If _handler_ is *null*, throw a *TypeError* exception.
                 1. If Type(_handler_) is Object, then
                   1. Let _importHook_ be ? GetMethod(_handler_, *"importHook"*).
-                  1. If _importHook_ is *undefined*, then
-                    1. Let _importHookClosure_ be a new Abstract Closure with parameters (_specifier_) that captures _moduleRecord_ and performs the following steps when called
-                      1. Assert: Type(_specifier_) is String.
-                      1. NOTE: Default import hook.
-                      1. Let _promiseCapability_ be ! NewPromiseCapability(%Promise%).
-                      1. TODO: This links/evaluates the imported module, but it should return it in it's initial status (if it was not already linked/evaluated for other reasons).
-                      1. Perform HostImportModuleDynamically(_moduleRecord_, _specifier_, _promiseCapability_).
-                      1. Return _promiseCapability_.[[Promise]].
-                    1. Let _importHook_ be CreateBuiltinFunction(_importHookClosure_, 1, *""*, &laquo; &raquo;).
-                  1. Let _importMetaHook_ be ? GetMethod(handler, *"importMetaHook"*).
-                  1. If IsCallable(_importMetaHook_) is *false*, throw a *TypeError* exception.
+                  1. If _importHook_ is not *undefined* and IsCallable(_importHook_) is *false*, throw a *TypeError* exception.
+                  1. Let _importMetaHook_ be ? GetMethod(_handler_, *"importMetaHook"*).
+                  1. If _importMetaHook_ is not *undefined* and IsCallable(_importMetaHook_) is *false*, throw a *TypeError* exception.
                 1. Let _O_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%Module.prototype%"*, « [[Module]], [[ModuleSourceInstance]], [[HandlerValue]], [[ImportHook]], [[ImportMetaHook]] »).
                 1. Set _O_.[[ModuleSourceInstance]] to _moduleSource_.
                 1. Set _O_.[[HandlerValue]] be _handler_.
@@ -677,8 +677,8 @@ location: https://tc39.es/proposal-compartments/
                     </tr>
                     <tr>
                         <td>[[ImportHook]]</td>
-                        <td>a callable Object</td>
-                        <td>The callable Object associated to the [[Module]] record to resolve module dependencies.</td>
+                        <td>an Object or *undefined*</td>
+                        <td>If the value is an Object it must be a function object, defaults to *undefined*. The function can return a module instance to resolve module dependencies.</td>
                     </tr>
                     <tr>
                         <td>[[ImportMetaHook]]</td>
