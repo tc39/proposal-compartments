@@ -449,7 +449,8 @@ location: https://tc39.es/proposal-compartments/
                 1. Let _handler_ be _moduleInstance_.[[HandlerValue]].
                 1. Let _completion_ be Completion(Call(_importHook_, _handler_, « _specifier_ »).
                 1. IfAbruptRejectPromise(_completion_, _promiseCapability_).
-                1. Let _importHookPromise_ be ? PromiseResolve(%Promise%, _completion_.[[Value]]).
+                1. Let _importHookPromise_ be Completion(PromiseResolve(%Promise%, _completion_.[[Value]])).
+                1. IfAbruptRejectPromise(_importHookPromise_, _promiseCapability_).
               1. Let _fulfilledClosure_ be a new Abstract Closure with parameters (_result_) that captures _moduleRecord_ and _promiseCapability_ and performs the following steps when called
                 1. If _result_ is a Module Record, then
                   1. Perform ! Call(_promiseCapability_.[[Resolve]], *undefined*, &laquo; _result_ &raquo;).
@@ -578,17 +579,21 @@ location: https://tc39.es/proposal-compartments/
 
         <emu-clause id="sec-module">
             <h1>Module ( _moduleSource_, _handler_ )</h1>
-            <p>When the `Module` function is called with the arguments _moduleSource_, _referral_, _importHook_ and _importMeta_, the following steps are taken:</p>
+            <p>When the `Module` function is called with the arguments _moduleSource_ and _handler_, the following steps are taken:</p>
             <emu-alg>
                 1. If NewTarget is *undefined*, throw a *TypeError* exception.
                 1. Perform ? RequireInternalSlot(_moduleSource_, [[ModuleSource]]).
                 1. Let _moduleRecord_ to ! CreateModuleRecord(_moduleSource_.[[ModuleSource]]).
-                1. If _handler_ is *null*, throw a *TypeError* exception.
                 1. If Type(_handler_) is Object, then
                   1. Let _importHook_ be ? GetMethod(_handler_, *"importHook"*).
                   1. If _importHook_ is not *undefined* and IsCallable(_importHook_) is *false*, throw a *TypeError* exception.
                   1. Let _importMetaHook_ be ? GetMethod(_handler_, *"importMetaHook"*).
                   1. If _importMetaHook_ is not *undefined* and IsCallable(_importMetaHook_) is *false*, throw a *TypeError* exception.
+                1. Else if _handler_ is *undefined*, then
+                  1. Let _importHook_ be *undefined*.
+                  1. Let _importMetaHook_ be *undefined*.
+                1. Else,
+                  1. Throw a *TypeError* exception.
                 1. Let _O_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%Module.prototype%"*, « [[Module]], [[ModuleSourceInstance]], [[HandlerValue]], [[ImportHook]], [[ImportMetaHook]] »).
                 1. Set _O_.[[ModuleSourceInstance]] to _moduleSource_.
                 1. Set _O_.[[HandlerValue]] be _handler_.
@@ -677,13 +682,13 @@ location: https://tc39.es/proposal-compartments/
                     </tr>
                     <tr>
                         <td>[[ImportHook]]</td>
-                        <td>an Object or *undefined*</td>
-                        <td>If the value is an Object it must be a function object, defaults to *undefined*. The function can return a module instance to resolve module dependencies.</td>
+                        <td>a function object or *undefined*</td>
+                        <td>Defaults to *undefined*. The function can return a module instance to resolve module dependencies.</td>
                     </tr>
                     <tr>
                         <td>[[ImportMetaHook]]</td>
-                        <td>an Object or *undefined*</td>
-                        <td>If the value is an Object it must be a function object, defaults to *undefined*. The function can augment the `import.meta` object provided as the first argument.</td>
+                        <td>a function object or *undefined*</td>
+                        <td>Defaults to *undefined*. The function can augment the `import.meta` object provided as the first argument.</td>
                     </tr>
                 </tbody>
             </table>
