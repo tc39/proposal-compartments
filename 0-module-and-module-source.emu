@@ -83,6 +83,37 @@ location: https://tc39.es/proposal-compartments/
     </emu-table>
 </emu-clause>
 
+<emu-clause id="sec-meta-properties">
+  <h1>Meta Properties</h1>
+
+  <emu-clause id="sec-meta-properties-runtime-semantics-evaluation" type="sdo">
+    <h1>Runtime Semantics: Evaluation</h1>
+
+    <emu-grammar>ImportMeta : `import` `.` `meta`</emu-grammar>
+    <emu-alg>
+      1. Let _module_ be GetActiveScriptOrModule().
+      1. Assert: _module_ is a Source Text Module Record.
+      1. Let _importMeta_ be _module_.[[ImportMeta]].
+      1. If _importMeta_ is ~empty~, then
+        1. Set _importMeta_ to OrdinaryObjectCreate(*null*).
+        1. <ins>If _module_.[[ModuleInstance]] is *undefined* or _module_.[[ModuleInstance]].[[ImportMetaHook]] is *undefined*, then</ins>
+          1. Let _importMetaValues_ be HostGetImportMetaProperties(_module_).
+          1. For each Record { [[Key]], [[Value]] } _p_ of _importMetaValues_, do
+            1. Perform ! CreateDataPropertyOrThrow(_importMeta_, _p_.[[Key]], _p_.[[Value]]).
+          1. Perform HostFinalizeImportMeta(_importMeta_, _module_).
+        1. <ins>Else,</ins>
+          1. <ins>Let _importMetaHook_ be _module_.[[ModuleInstance]].[[ImportMetaHook]].</ins>
+          1. <ins>Let _handler_ be _module_.[[ModuleInstance]].[[HandlerValue]].</ins>
+          1. <ins>Perform ? Call(_importMetaHook_, _handler_, &laquo; _importMeta_ &raquo;).</ins>
+        1. Set _module_.[[ImportMeta]] to _importMeta_.
+        1. Return _importMeta_.
+      1. Else,
+        1. Assert: Type(_importMeta_) is Object.
+        1. Return _importMeta_.
+    </emu-alg>
+  </emu-clause>
+</emu-clause>
+
 <emu-clause id="sec-modulesource-records">
     <h1>Module Source Records</h1>
 
@@ -403,13 +434,23 @@ location: https://tc39.es/proposal-compartments/
             </dl>
             <emu-alg>
               1. Assert: _moduleRecord_ is a Module Record.
+              1. Assert: Type(_specifier_) is String.
               1. Assert: _moduleRecord_.[[ModuleInstance]] is an Object.
               1. Assert: ResolveModuleRecordDependency has not been invoked with _moduleRecord_ and _specifier_ pair.
               1. Let _moduleInstance_ be _moduleRecord_.[[ModuleInstance]].
               1. Let _importHook_ be _moduleInstance_.[[ImportHook]].
-              1. Let _completion_ be Completion(Call(_importHook_, *undefined*, « _specifier_ »).
-              1. IfAbruptRejectPromise(_completion_, _promiseCapability_).
-              1. Let _importHookPromise_ be ? PromiseResolve(%Promise%, _completion_.[[Value]]).
+              1. If _importHook_ is *undefined*, then
+                1. NOTE: Default import hook.
+                1. Let _innerPromiseCapability_ be ! NewPromiseCapability(%Promise%).
+                1. TODO: This links/evaluates the imported module, but it should return it in it's initial status (if it was not already linked/evaluated for other reasons).
+                1. Perform HostImportModuleDynamically(_moduleRecord_, _specifier_, _innerPromiseCapability_).
+                1. Let _importHookPromise_ be _innerPromiseCapability_.[[Promise]].
+              1. Else,
+                1. Let _handler_ be _moduleInstance_.[[HandlerValue]].
+                1. Let _completion_ be Completion(Call(_importHook_, _handler_, « _specifier_ »).
+                1. IfAbruptRejectPromise(_completion_, _promiseCapability_).
+                1. Let _importHookPromise_ be Completion(PromiseResolve(%Promise%, _completion_.[[Value]])).
+                1. IfAbruptRejectPromise(_importHookPromise_, _promiseCapability_).
               1. Let _fulfilledClosure_ be a new Abstract Closure with parameters (_result_) that captures _moduleRecord_ and _promiseCapability_ and performs the following steps when called
                 1. If _result_ is a Module Record, then
                   1. Perform ! Call(_promiseCapability_.[[Resolve]], *undefined*, &laquo; _result_ &raquo;).
@@ -432,7 +473,7 @@ location: https://tc39.es/proposal-compartments/
                 ResolveModuleRecordDependency Abstract Operation can not be called more than once for arguments _moduleRecord_ and _specifier_ pair.
             </emu-note>
             <emu-note type="editor">
-               Import Reflection Proposal can provide the expansion mechanism to delegate to the host the resolution of a particular dependency, allowing the [[ImportHook]] to return a Module Instance rather than having to open up the ImportHook to support module namespace exotic objects.                  
+               Import Reflection Proposal can provide the expansion mechanism to delegate to the host the resolution of a particular dependency, allowing the [[ImportHook]] to return a Module Instance rather than having to open up the ImportHook to support module namespace exotic objects.
             </emu-note>
         </emu-clause>
 
@@ -449,7 +490,7 @@ location: https://tc39.es/proposal-compartments/
               <dd>It performs any necessary setup work in order to make available the module corresponding to module represented by _moduleRecord_. It then performs FinishModuleDynamicImport to finish the dynamic import process.</dd>
             </dl>
             <p>An implementation of HostImportModuleRecordDynamically must conform to the following requirements:</p>
-    
+
             <ul>
               <li>
                 It must call ResolveModuleRecordDependency for every (_moduleRecord_, _specifierString_) pair, where _specifierString_ are the entries of _moduleRecord_.[[RequestedModules]] for each recursively resolved Cyclic Module Record _moduleRecord_. ResolveModuleRecordDependency must not be called twice with the same (_moduleRecord_, _specifierString_) pair: instead, the result of the first call should be cached and reused as the result of successive resolutions.
@@ -461,15 +502,15 @@ location: https://tc39.es/proposal-compartments/
                 The host environment must conform to one of the two following sets of requirements:
                 <dl>
                   <dt>Success path</dt>
-    
+
                   <dd>
                     <ul>
                       <li>At some future time, the host environment must perform FinishModuleDynamicImport(_moduleRecord_, _promiseCapability_, _promise_), where _promise_ is a Promise resolved with *undefined*.</li>
                     </ul>
                   </dd>
-    
+
                   <dt>Failure path</dt>
-    
+
                   <dd>
                     <ul>
                       <li>At some future time, the host environment must perform FinishModuleDynamicImport(_moduleRecord_, _promiseCapability_, _promise_), where _promise_ is a Promise rejected with an error representing the cause of failure.</li>
@@ -488,7 +529,7 @@ location: https://tc39.es/proposal-compartments/
                 This host operation is hand-waving, similar to FinishDynamicImport. This will be addressed on a separate refactor that is orthogonal to this proposal.
             </emu-note>
           </emu-clause>
-    
+
           <emu-clause id="sec-finishmoduledynamicimport" type="abstract operation">
             <h1>
               FinishModuleDynamicImport (
@@ -537,27 +578,29 @@ location: https://tc39.es/proposal-compartments/
         </ul>
 
         <emu-clause id="sec-module">
-            <h1>Module ( _moduleSource_, _referral_, _importHook_ [, _importMeta_ ] )</h1>
-            <p>When the `Module` function is called with the arguments _moduleSource_, _referral_, _importHook_ and _importMeta_, the following steps are taken:</p>
+            <h1>Module ( _moduleSource_, _handler_ )</h1>
+            <p>When the `Module` function is called with the arguments _moduleSource_ and _handler_, the following steps are taken:</p>
             <emu-alg>
                 1. If NewTarget is *undefined*, throw a *TypeError* exception.
-                1. If Type(_moduleSource_) is not Object, throw a *TypeError* exception.
-                1. If IsCallable(_importHook_) is *false*, throw a *TypeError* exception.
-                1. If _importMeta_ is *undefined*, then
-                  1. Set _importMeta_ to *null*.
-                1. Else, if Type(_importMeta_) is not Object, then
-                  1. Throw a *TypeError* exception.
                 1. Perform ? RequireInternalSlot(_moduleSource_, [[ModuleSource]]).
-                1. Let _O_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%Module.prototype%"*, « [[Module]], [[ModuleSourceInstance]], [[ImportHook]] »).
                 1. Let _moduleRecord_ to ! CreateModuleRecord(_moduleSource_.[[ModuleSource]]).
-                1. Set _moduleRecord_.[[ModuleInstance]] to _O_.
-                1. Set _moduleRecord_.[[ImportMeta]] to _importMeta_.
-                1. Let _importHookClosure_ be a new Abstract Closure with parameters (_specifier_) that captures _importHook_ and _referral_ and performs the following steps when called
-                  1. Assert: Type(_specifier_) is String.
-                  1. return ? Call(_importHook_, *undefined*, « _specifier_, _referral_ »).
-                1. Set _O_.[[Module]] to _moduleRecord_.
+                1. If Type(_handler_) is Object, then
+                  1. Let _importHook_ be ? GetMethod(_handler_, *"importHook"*).
+                  1. If _importHook_ is not *undefined* and IsCallable(_importHook_) is *false*, throw a *TypeError* exception.
+                  1. Let _importMetaHook_ be ? GetMethod(_handler_, *"importMetaHook"*).
+                  1. If _importMetaHook_ is not *undefined* and IsCallable(_importMetaHook_) is *false*, throw a *TypeError* exception.
+                1. Else if _handler_ is *undefined*, then
+                  1. Let _importHook_ be *undefined*.
+                  1. Let _importMetaHook_ be *undefined*.
+                1. Else,
+                  1. Throw a *TypeError* exception.
+                1. Let _O_ be ? OrdinaryCreateFromConstructor(NewTarget, *"%Module.prototype%"*, « [[Module]], [[ModuleSourceInstance]], [[HandlerValue]], [[ImportHook]], [[ImportMetaHook]] »).
                 1. Set _O_.[[ModuleSourceInstance]] to _moduleSource_.
-                1. Set _O_.[[ImportHook]] be CreateBuiltinFunction(_importHookClosure_, 1, *""*, &laquo; &raquo;).
+                1. Set _O_.[[HandlerValue]] be _handler_.
+                1. Set _O_.[[ImportHook]] be _importHook_.
+                1. Set _O_.[[ImportMetaHook]] be _importMetaHook_.
+                1. Set _moduleRecord_.[[ModuleInstance]] to _O_.
+                1. Set _O_.[[Module]] to _moduleRecord_.
                 1. Return _O_.
             </emu-alg>
         </emu-clause>
@@ -633,9 +676,19 @@ location: https://tc39.es/proposal-compartments/
                         <td>The ModuleSource Instance associated to Module Instance. *null* if this Module Instance has not a source associated to it.</td>
                     </tr>
                     <tr>
+                        <td>[[HandlerValue]]</td>
+                        <td>an ECMAScript language value</td>
+                        <td>This is the *this* value used for invocation of the hook functions.</td>
+                    </tr>
+                    <tr>
                         <td>[[ImportHook]]</td>
-                        <td>a callable Object</td>
-                        <td>The callable Object associated to the [[Module]] record to resolve module dependencies.</td>
+                        <td>a function object or *undefined*</td>
+                        <td>Defaults to *undefined*. The function can return a module instance to resolve module dependencies.</td>
+                    </tr>
+                    <tr>
+                        <td>[[ImportMetaHook]]</td>
+                        <td>a function object or *undefined*</td>
+                        <td>Defaults to *undefined*. The function can augment the `import.meta` object provided as the first argument.</td>
                     </tr>
                 </tbody>
             </table>
