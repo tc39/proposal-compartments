@@ -75,6 +75,10 @@ With that, the Compartments proposal consists of five layers:
   Compartments can be implemented in user code using `Evaluators`, `Module`,
   and `ModuleSource`.
 
+[Motivating use cases for module proposal features](./GRAPH.md) illustrates
+the motivation for each feature from the layers of this Compartments proposal
+and related module proposals.
+
 [0]: ./0-module-and-module-source.md
 [1]: ./1-static-analysis.md
 [2]: ./2-virtual-module-source.md
