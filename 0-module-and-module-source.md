@@ -48,33 +48,46 @@ of an agent cluster.
 ```ts
 type ImportSpecifier = string;
 
-type ImportHook = (specifier: ImportSpecifier, importMeta: object) =>
+type ImportHook = (this: ModuleHandler, specifier: ImportSpecifier) =>
   Promise<Module>;
+
+type ImportMeta = {
+  __proto__: null,
+  // ...
+  [name: string | symbol | number]: unknown,
+};
+
+type ImportMetaHook = (this: ModuleHandler, importMeta: ImportMeta) => any;
+
+type ModuleHandler = {
+  importHook?: ImportHook,
+  importMetaHook?: ImportMetaHook,
+  // ...
+  [name: string | symbol | number]: unknown,
+};
 
 interface Module {
   constructor(
     source: ModuleSource,
-    options: {
-      importHook?: ImportHook,
-      importMeta?: object,
-    },
+    handler: ModuleHandler,
   );
 
-  readonly source: ModuleSource,
+  readonly source?: ModuleSource,
 }
 ```
 
-Semantics: A `Module` has a 1-1-1-1 relationship with a ***Module Environment
-Record***, a ***Module Record*** and a ***module namespace exotic object***.
+Semantics: A `Module` instance has an internal ***Module Record***.
+Importing the module will consistently produce the same ***Module Namespace
+Exotic Object***.
 
 The module has a lifecycle and fresh instances have not been linked,
 initialized, or executed.
 
-Invoking dynamic import on a `Module` instance advances it and its transitive
-dependencies to their end state.
+Invoking dynamic import on a `Module` instance attempts to advance it and its
+transitive dependencies to their end state.
 Consistent with dynamic import for a stringly-named module,
 dynamic import on a `Module` instance produces a promise for the corresponding
-***Module Namespace Object***
+***Module Namespace Exotic Object***
 
 Dynamic import induces calls to `importHook` for each unsatisfied dependency of
 each module instance in separate events, before any dependency advances to the
@@ -100,10 +113,7 @@ terminal state or any one into a failed state.
 
 ```js
 const source = new ModuleSource(``);
-const instance = new Module(source, {
-  importHook,
-  importMeta: import.meta,
-});
+const instance = new Module(source);
 const namespace = await import(instance);
 ```
 
@@ -114,10 +124,7 @@ instance must yield the same result:
 
 ```js
 const source = new ModuleSource(``);
-const instance = new Module(source, {
-  importHook,
-  importMeta: import.meta,
-});
+const instance = new Module(source);
 const namespace1 = await import(instance);
 const namespace2 = await import(instance);
 namespace1 === namespace2; // true
@@ -132,14 +139,8 @@ separate module namespaces.
 
 ```js
 const source = new ModuleSource(``);
-const instance1 = new Module(source, {
-  importHook: importHook1,
-  importMeta: import.meta,
-});
-const instance2 = new Module(source, {
-  importHook: importHook2,
-  importMeta: import.meta,
-}));
+const instance1 = new Module(source);
+const instance2 = new Module(source);
 instance1 === instance2; // false
 const namespace1 = await import(instance1);
 const namespace2 = await import(instance2);
@@ -160,19 +161,6 @@ instance.source instanceof ModuleSource;
 const namespace = await import(instance);
 ```
 
-To avoid needing a throw-away module-instance in order to get a module source,
-we can extend the syntax:
-
-```js
-const source = static module {};
-source instanceof ModuleSource;
-const instance = new Module(source, {
-  importHook,
-  importMeta: import.meta,
-});
-const namespace = await import(instance);
-```
-
 ### Intersection Semantics with deferred execution
 
 The possibility to load the source, and create the instance with the default
@@ -180,63 +168,171 @@ The possibility to load the source, and create the instance with the default
 given time, is sufficient:
 
 ```js
-import instance from 'module.js' deferred execution syntax;
-instance instanceof Module;
-instance.source instanceof ModuleSource;
-const namespace = await import(instance);
+// static
+import module example from 'example.js';
+// or dynamic
+const example = await import.module('example.js');
+
+example instanceof Module;
+example.source instanceof ModuleSource;
+const namespace = await import(example);
 ```
 
 If the goal is to also control the `importHook` and the `importMeta` of the
-importer, then a new syntax can be provided to only get the `ModuleSource`:
+importer, then the program can use the `source` property of the unexecuted
+module and construct a new `Module`.
 
 ```ts
-import source from 'module.js' static source syntax;
-source instanceof ModuleSource;
-const instance = new Module(source, {
-  importHook,
-  importMeta: import.meta,
-});
+import module example from 'example.js';
+module.source instanceof ModuleSource;
+const instance = new Module(module.source, { importHook });
 const namespace = await import(instance);
 ```
 
-This is important, because it is analogous to block modules, but instead of
-inline source, it is a source that must be fetched.
+In these cases, the `ModuleSource` may benefit from the origin
+being captured in host data, such that it can be evaluated
+under a no-unsafe-eval Content-Security-Policy.
+
+### Virtual host import behavior
+
+The `Module` constructor takes an optional second argument to override the
+host-defined behavior for importing its shallow dependencies.
+The second argument is a handler object.
+The `Module` constructor eagerly captures the relevant methods
+like `importHook` and `importMetaHook`, which are all optional.
+
+```js
+class ModuleHandler {
+  importHook(specifier) {
+    // Defer to the host:
+    return import.module(specifier);
+
+    // Or, make a separate instance of the same:
+    const dependency = await import.module(specifier);
+    return new Module(dependency.source);
+
+    // Or, use a block:
+    return module {};
+
+    // Or, make a new Module from whole cloth:
+    const response = await fetch(specifier);
+    const text = await response.text();
+    const source = new ModuleSource(text);
+    return new Module(source);
+  }
+}
+
+const source = new ModuleSource(`import foo from 'foo'`);
+const module = new Module(source, new ModuleHandler());
+await import(module);
+```
+
+In this example, the `importHook` will be called once with `"foo"` and must
+return a `Module` instance by any of the available means.
+
+For an `importHook` to receive `this` requires `importHook` to be defined as a
+`class` method, a `function` declaration, or a concise method and that, unlike
+a `Proxy` and perhaps against the grain of expectations, changing the
+`importHook` property does not alter the behavior of any `Module` instance that
+has already captured the `importHook` property of the module handler when it
+was constructed.
+
+### Virtual Host relative import behavior
+
+The above example does not account for relative import specifiers.
+For example, to emulate a Node.js module, an absolute specifier refers
+either to a nearby package dependency or a built-in module, in order of
+precedence, but a relative specifier (starting with `"./"` or `"../"`)
+gets resolved using path math relative to the physical location of the
+containing module, the `referrer`.
+
+The `Module` instance will call its hooks as methods of the module handler
+object, so module handlers are free to carry additional metadata.
+This variation on a `ModuleHandler` carries an additional `url` property
+for import resolution and assumes an appropriate `resolve` function.
+
+```js
+class ModuleHandler {
+  async importHook(specifier) {
+    const url = resolve(specifier, this.url);
+    // Use the host's loader.
+    const module = import.module(url);
+    // But create separate instances, transitively.
+    return new Module(module.source, new ModuleHandler(url));
+  }
+}
+
+const { source } = await import.module(entryUrl);
+const module = new Module(source, new ModuleHandler(entryUrl));
+```
+
+In this example, `import.module` uses the host's import behavior, actual or
+virtual.
+If the host is a virtual host, that involves the surrounding module's `Module`
+instance's `importHook`.
+
+### Virtual host `import.meta` behavior
+
+A `ModuleHandler` may implement an `importMetaHook` that receives
+an empty object with a null prototype that it may embellish
+the first time (if at all) a module evaluates an `import.meta`
+expression.
+This example extends the prior handler implementation such
+that it reveals the module's own URL.
+
+```js
+class MetaModuleHandler extends ModuleHandler {
+  importMetaHook(importMeta) {
+    importMeta.url = this.url;
+  }
+}
+```
+
+### Virtual host import assertion behavior
+
+Open issue: https://github.com/tc39/proposal-compartments/issues/37
 
 ### Intersection Semantics with import.meta.resolve()
 
 Proposal: https://github.com/whatwg/html/pull/5572
 
 ```ts
-const importHook = async (specifier, importMeta) => {
-  const url = importMeta.resolve(specifier);
-  const response = await fetch(url);
-  const sourceText = await response.text();
-  const source = new ModuleSource(sourceText);
-  return new Module(source, {
-    importHook,
-    importMeta: createCustomImportMeta(url),
-  });
+
+class ModuleHandler {
+  constructor(url) {
+    this.url = url;
+  }
+  async importHook(specifier) {
+    const url = import.meta.resolve(specifier, this.url);
+    const response = await fetch(url);
+    const sourceText = await response.text();
+    const source = new ModuleSource(sourceText);
+    return new Module(source, new ModuleHandler(url));
+  },
+  importMetaHook(importMeta) {
+    importMeta.url = this.url;
+    importMeta.resolve = (specifier, referrer = this.url) =>
+      import.meta.resolve(specifier, referrer);
+  },
 }
 
 const source = new ModuleSource(`export foo from './foo.js'`);
-const instance = new Module(source, {
-  importHook,
-  importMeta: import.meta,
-});
+const instance = new Module(source, new ModuleHandler(import.meta.url));
 const namespace = await import(instance);
 ```
 
-In the example above, we re-use the `ImportHook` declaration for two instances,
-the `source`, and the corresponding dependency for specifier `./foo.js`. When
-the kicker `import(instance)` is executed, the `importHook` will be invoked
-once with the `specifier` argument as `./foo.js`, and the `meta` argument with
-the value of the `import.meta` associated to the kicker itself. As a result,
-the `specifier` can be resolved based on the provided `meta` to calculate the
-`url`, fetch the source, and create a new `Module` for the new source. This new
-instance opts to reuse the same `importHook` function while constructing the
-`meta` object. It is important to notice that the `meta` object has two
-purposes, to be referenced by syntax in the source text (via `import.meta`) and
-to be passed to the `importHook` for any dependencies of `./foo.js` itself.
+In this example, we implement a module handler class that resolves import
+specifiers from a given URL, using the host-provided resolver,
+`import.meta.resolve`.
+This resolver, in its two-argument form, allows us to resolve specifiers at
+arbitrary locations.
+
+The first time a guest module uses its own `import.meta`, the virtualized
+`importMetaHook` will create a closure for its own emulation of
+`import.meta.resolve`, supporting both one- and two-argument forms.
+The `importMetaHook` allows us to avoid this expensive per-module allocation
+except in modules that absolutely need it.
+
 
 ## Design
 
@@ -333,27 +429,79 @@ This proposal does not impose on host-defined import behavior.
 
 ### Referrer Specifier
 
-This proposal expressly avoids specifying a module referrer.
-We are convinced that the `importMeta` object passed to the `Module`
-constructor is sufficient to denote (have a host-specific referrer property
-like `url` or a method like `resolve`) or connote (serve as a key in a `WeakMap`
-side table) since the import behavior carries that exact object to the
-`importHook`, regardless of whether `import.meta` is identical to `importMeta`.
-This allows us virtual modules to emulate even hosts that provide empty
-`import.meta` objects.
+The host-defined or virtual-host-defined import hook for a module is
+responsible for taking "import specifiers", the string expressed in both static
+and dynamic import statements, and resolving them relative to the logical or
+physical specifier for the module.
+Although it is possible to construct a host or virtual-host that only supports
+absolute or fully-qualified specifiers, nearly every module will have a
+referrer of one kind or another.
+
+A module will typically have three distinct but often coincident data:
+
+- This `referrer` concept, the basis for resolving import specifiers.
+- The `import.meta.url`, the basis for locating resources adjacent to modules
+  hosted on the web using URL math.
+  The `import.meta` object should not have a `url` property unless it
+  is useful for that purpose, and as such should not exist for modules
+  located in bundles or archives, and should not be used in modules that
+  will be bundled or archived, but will often be identical to the `referrer`
+  when it is present.
+- The origin of the source, the basis for a host deciding whether to allow the
+  module to be evaluated when a Content-Security-Policy is in place.
+  The origin will often be identical to the origin of `import.meta.url`.
+  The origin will exist in host data of the module source and must
+  not be virtualizable, lest a virtual host be able to escape a same origin
+  policy.
+
+So, although these values are often related, they must be independent features.
+Virtual host implementations cannot necessarily rely on the `import.meta.url`
+to exist and virtual host implementations must be able to virtualize the
+referrer.
+
+The authors of this proposal vacilated between versions that made the referrer
+explicit or implicit.
+All of the authors shared a goal to make the `Module` and `ModuleSource`
+features incrementally explainable.
+Since it is possible to construct a trivial module system without the concept
+of a referrer, a graduated tutorial introducing this feature (like this
+explainer!) should be able to defer or formally ignore referral until it
+becomes necessary to explain relative module specifier resolution.
+
+To that end, we agreed that the referrer should be optional and appear later
+in function signatures than other more essential parameters, if at all.
+We relegated the `referrer` to at least be a property of the `Module`
+constructor's options bag.
+We then realized that the options bag was more analogous to the `Proxy` handler
+object, such that the virtual host could choose to extend the handler with any
+property of any type to carry the referrer, such that an import hook might
+resolve a relative specifier using `this.referrer` (a `string` with the
+module's own specifier), `this.slot` (a `number` representing the index into an
+array of pre-computed resolutions for a bundle), or whatever other protocol the
+virtual host chose to implement.
+
+This was only possible because host-defined resolution behavior and
+virtual-host-defined resolution behavior do not need to communicate.
+Host-defined modules resolve import specifiers based on information in the
+referring module record's host data internal slot.
+At no point does a host-defined module need to consult the referrer of a
+virtual-host-defined module.
+
+We additionally elected not to repeat what we believe to be a mistake in the
+design of `Proxy`.
+The `Module` constructor eagerly captures all the optional methods of the
+module handler rather than accessing them afresh for each invocation.
+So, we sacrifice some dynamism but still thread the handler as the target
+object for all method invocations.
+
+A consequence of this design is that any `Module` instance will retain a
+`handler`, where an options bag would be immediately released to the GC
+nursery.
+And, if the handler carries a `referrer`, every `Module` instance needs a
+unique handler instance, even though many module instances can share
+the same hooks.
 
 ## Design Variables 
-
-### Whether to reify the `referrer`
-
-As written, we've avoided threading a `referrer` argument into the `Module`
-constructor because the `importMeta` is sufficient for carrying information
-about the referrer.
-This is okay so long as `import.meta` and `importMeta` are different objects,
-because a module should not be able to alter its own referrer over the course
-of its evaluation.
-Having `import.meta !== importMeta` is a topic of some confusion.
-If these were made identical, we would need to thread `referrer` separately.
 
 ### Relationship to Content-Security-Policy
 
