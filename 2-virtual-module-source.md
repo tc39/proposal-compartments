@@ -232,7 +232,7 @@ based on the solution in [Endo][endo].
     };
   }
   ```
-</summary>
+</details>
 
 ### Pass-through module sources
 
