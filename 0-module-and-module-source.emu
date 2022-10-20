@@ -42,6 +42,59 @@ location: https://tc39.es/proposal-compartments/
     </emu-table>
 </emu-clause>
 
+
+<emu-clause id="sec-cyclic-module-records">
+  <h1>Cyclic Module Records</h1>
+
+  <emu-clause id="sec-LoadRequestedModules" type="concrete method">
+    <h1>
+      LoadRequestedModules (
+        optional _hostDefined_: anything,
+      ): a Promise object
+    </h1>
+    <dl class="header">
+      <dt>for</dt>
+      <dd>a Cyclic Module Record _module_</dd>
+    </dl>
+
+    <emu-clause id="sec-InnerModuleLoading" type="abstract operation">
+      <h1>
+        InnerModuleLoading (
+          _state_: a GraphLoadingState Record,
+          _module_: a Module Record,
+        ): ~unused~
+      </h1>
+      <dl class="header">
+        <dt>description</dt>
+        <dd>It is used by LoadRequestedModules to recursively perform the actual loading process for _module_'s dependency graph.</dd>
+      </dl>
+
+      <emu-alg>
+        1. Assert: _state_.[[IsLoading]] is *true*.
+        1. If _module_ is a Cyclic Module Record, _module_.[[Status]] is ~new~, and _state_.[[Visited]] does not contain _module_, then
+          1. Append _module_ to _state_.[[Visited]].
+          1. Let _requestedModulesCount_ be the length of _module_.[[RequestedModules]].
+          1. Set _state_.[[PendingModulesCount]] to _state_.[[PendingModulesCount]] + _requestedModulesCount_.
+          1. For each String _required_ of _module_.[[RequestedModules]], do
+            1. If _module_.[[LoadedModules]] contains a Record _record_ whose [[Specifier]] is _required_, then
+              1. Perform InnerModuleLoading(_state_, _record_.[[Module]]).
+            1. Else,
+              1. Perform <del>HostLoadImportedModule</del><ins>LoadImportedModule</ins>(_module_, _required_, _state_.[[HostDefined]], _state_).
+              1. NOTE: <del>HostLoadImportedModule</del><ins>LoadImportedModule</ins> will call FinishLoadingImportedModule, which re-enters the graph loading process through ContinueModuleLoading.
+            1. If _state_.[[IsLoading]] is *false*, return ~unused~.
+        1. Assert: _state_.[[PendingModulesCount]] &ge; 1.
+        1. Set _state_.[[PendingModulesCount]] to _state_.[[PendingModulesCount]] - 1.
+        1. If _state_.[[PendingModulesCount]] = 0, then
+          1. Set _state_.[[IsLoading]] to *false*.
+          1. For each Cyclic Module Record _loaded_ in _state_.[[Visited]], do
+            1. If _loaded_.[[Status]] is ~new~, set _loaded_.[[Status]] to ~unlinked~.
+          1. Perform ! Call(_state_.[[PromiseCapability]].[[Resolve]], *undefined*, &laquo; *undefined* &raquo;).
+        1. Return ~unused~.
+      </emu-alg>
+    </emu-clause>
+  </emu-clause>
+</emu-clause>
+
 <emu-clause id="sec-source-text-module-records">
     <h1>Source Text Module Records</h1>
 
@@ -237,18 +290,21 @@ location: https://tc39.es/proposal-compartments/
 
       <emu-grammar>ImportCall : `import` `(` AssignmentExpression `)`</emu-grammar>
       <emu-alg>
-        1. Let _referencingScriptOrModule_ be GetActiveScriptOrModule().
-        1. Let _argRef_ be the result of evaluating |AssignmentExpression|.
-        1. <del>Let _specifier_ be ? GetValue(_argRef_).</del>
-        1. <ins>Let _specifierOrModule_ be ? GetValue(_argRef_).</ins>
+        1. Let _referrer_ be GetActiveScriptOrModule().
+        1. If _referrer_ is *null*, set _referrer_ to the current Realm Record.
+        1. Let _argRef_ be ? Evaluation of |AssignmentExpression|.
+        1. Let <del>_specifier_</del><ins>_specifierOrModule_</ins> be ? GetValue(_argRef_).
         1. Let _promiseCapability_ be ! NewPromiseCapability(%Promise%).
         1. <ins>If Type(_specifierOrModule_) is Object that has a [[ModuleSourceInstance]] internal slot, then</ins>
-          1. <ins>Let _moduleRecord_ be _specifierOrModule_.[[Module]].</ins>
-          1. <ins>Perform HostImportModuleRecordDynamically(_moduleRecord_, _promiseCapability_).</ins>
+          1. <ins>Perform ContinueDynamicImport(_promiseCapability_, _specifierOrModule_.[[Module]]).</ins>
         1. <ins>Else,</ins>
-          1. Let _specifierString_ be Completion(ToString(_specifierOrModule_)).
+          1. Let _specifierString_ be Completion(ToString(<del>_specifier_</del><ins>_specifierOrModule_</ins>)).
           1. IfAbruptRejectPromise(_specifierString_, _promiseCapability_).
-          1. Perform HostImportModuleDynamically(_referencingScriptOrModule_, _specifierString_, _promiseCapability_).
+          1. <ins>If _referrer_ is a Source Text Module Record, _referrer_.[[ModuleInstance]] is not *undefined*, _referrer_.[[ModuleInstance]].[[ImportHook]] is not *undefined*, and _referrer_.[[LoadedModules]] contains a Record _record_ whose [[Specifier]] is _specifierString_, then</ins>
+            1. <ins>NOTE: Checking _referrer_.[[ModuleInstance]].[[ImportHook]] is necessary because calls to HostLoadImportedModule coming from `import()` expressions should not be cached, to preserve the current behavior of some hosts.</ins>
+            1. <ins>Perform ContinueDynamicImport(_promiseCapability_, _record_.[[Module]]).</ins>
+          1. <ins>Else,</ins>
+            1. Perform <del>HostLoadImportedModule</del><ins>LoadImportedModule</ins>(_referrer_, _specifierString_, ~empty~, _promiseCapability_).
         1. Return _promiseCapability_.[[Promise]].
       </emu-alg>
     </emu-clause>
@@ -420,151 +476,49 @@ location: https://tc39.es/proposal-compartments/
             </emu-alg>
         </emu-clause>
 
-        <emu-clause id="sec-resolvemodulerecorddependency" type="abstract operation">
-            <h1>
-                ResolveModuleRecordDependency (
-                    _moduleRecord_: a Module Record,
-                    _specifier_: a |ModuleSpecifier| String,
-                    _promiseCapability_: a PromiseCapability Record,
-                ): ~unused~
-            </h1>
-            <dl class="header">
-              <dt>description</dt>
-              <dd>It provides the concrete Module Record subclass instance that corresponds to _specifier_ occurring within the module represented by _moduleRecord_.</dd>
-            </dl>
-            <emu-alg>
-              1. Assert: _moduleRecord_ is a Module Record.
-              1. Assert: Type(_specifier_) is String.
-              1. Assert: _moduleRecord_.[[ModuleInstance]] is an Object.
-              1. Assert: ResolveModuleRecordDependency has not been invoked with _moduleRecord_ and _specifier_ pair.
-              1. Let _moduleInstance_ be _moduleRecord_.[[ModuleInstance]].
-              1. Let _importHook_ be _moduleInstance_.[[ImportHook]].
-              1. If _importHook_ is *undefined*, then
-                1. NOTE: Default import hook.
-                1. Let _innerPromiseCapability_ be ! NewPromiseCapability(%Promise%).
-                1. TODO: This links/evaluates the imported module, but it should return it in it's initial status (if it was not already linked/evaluated for other reasons).
-                1. Perform HostImportModuleDynamically(_moduleRecord_, _specifier_, _innerPromiseCapability_).
-                1. Let _importHookPromise_ be _innerPromiseCapability_.[[Promise]].
+
+        <emu-clause id="sec-LoadImportedModule" type="abstract operation">
+          <h1>
+            <ins>
+              LoadImportedModule(
+                _referrer_: a Cyclic Module Record,
+                _specifier_: a String,
+                _hostDefined_: anything,
+                _payload_: a GraphLoadingState Record or a PromiseCapability Record,
+              ): ~unused~
+            </ins>
+          </h1>
+          <dl class="header"></dl>
+
+          <emu-alg>
+            1. If _referrer_ is not a Source Text Module Record, _referrer_.[[ModuleInstance]] is *undefined*, or _referrer_.[[ModuleInstance]].[[ImportHook]] is *undefined*, then
+              1. Perform HostLoadImportedModule(_referrer_, _specifier_, _hostDefined_, _payload_).
+              1. Return ~unused~.
+            1. Let _importHookResult_ be Completion(Call(_referrer_.[[ModuleInstance]].[[ImportHook]], _referrer_.[[ModuleInstance]].[[HandlerValue]], « _specifier_ »).
+            1. If _importHookResult_ is an abrupt completion, then
+              1. Perform FinishLoadingImportedModule(_referrer_, _specifier_, _payload_, _completion_).
+              1. Return ~unused~.
+            1. Let _importHookPromise_ be Completion(PromiseResolve(%Promise%, _importHookResult_.[[Value]])).
+            1. If _importHookPromise_ is an abrupt completion, then
+              1. Perform FinishLoadingImportedModule(_referrer_, _specifier_, _payload_, _completion_).
+              1. Return ~unused~.
+            1. Let _fulfilledClosure_ be a new Abstract Closure with parameters (_result_) that captures _referrer_, _specifier_, and _payload_, and performs the following steps when called:
+              1. Let _completion_ be *null*.
+              1. If Type(_result_) is Object and _result_ has a [[ImportHook]] internal slot, then
+                1. Set _completion_ to NormalCompletion(_result_.[[Module]]).
               1. Else,
-                1. Let _handler_ be _moduleInstance_.[[HandlerValue]].
-                1. Let _completion_ be Completion(Call(_importHook_, _handler_, « _specifier_ »).
-                1. IfAbruptRejectPromise(_completion_, _promiseCapability_).
-                1. Let _importHookPromise_ be Completion(PromiseResolve(%Promise%, _completion_.[[Value]])).
-                1. IfAbruptRejectPromise(_importHookPromise_, _promiseCapability_).
-              1. Let _fulfilledClosure_ be a new Abstract Closure with parameters (_result_) that captures _moduleRecord_ and _promiseCapability_ and performs the following steps when called
-                1. If _result_ is a Module Record, then
-                  1. Perform ! Call(_promiseCapability_.[[Resolve]], *undefined*, &laquo; _result_ &raquo;).
-                1. Else, if _result_ is an Object that has a [[ImportHook]] internal slot, then
-                  1. Let _moduleRecord_ be _result_.[[Module]].
-                  1. Perform ! Call(_promiseCapability_.[[Resolve]], *undefined*, &laquo; _moduleRecord_ &raquo;).
-                1. Else,
-                  1. Perform ! Call(_promiseCapability_.[[Reject]], *undefined*, &laquo; a newly created *TypeError* object &raquo;).
-                1. Return ~unused~.
-              1. Let _onFulfilled_ be CreateBuiltinFunction(_fulfilledClosure_, 0, *""*, &laquo; &raquo;).
-              1. Let _rejectedClosure_ be a new Abstract Closure with parameters (_error_) that captures _promiseCapability_ and performs the following steps when called:
-                1. Perform ! Call(_promiseCapability_.[[Reject]], *undefined*, &laquo; _error_ &raquo;).
-                1. Return ~unused~.
-              1. Let _onRejected_ be CreateBuiltinFunction(_rejectedClosure_, 1, *""*, &laquo; &raquo;).
-              1. Perform PerformPromiseThen(_importHookPromise_, _onFulfilled_, _onRejected_).
+                1. Set _completion_ to ThrowCompletion(a newly created *TypeError* object).
+              1. Perform FinishLoadingImportedModule(_referrer_, _specifier_, _payload_, _completion_).
               1. Return ~unused~.
-            </emu-alg>
-
-            <emu-note>
-                ResolveModuleRecordDependency Abstract Operation can not be called more than once for arguments _moduleRecord_ and _specifier_ pair.
-            </emu-note>
-            <emu-note type="editor">
-               Import Reflection Proposal can provide the expansion mechanism to delegate to the host the resolution of a particular dependency, allowing the [[ImportHook]] to return a Module Instance rather than having to open up the ImportHook to support module namespace exotic objects.
-            </emu-note>
+            1. Let _onFulfilled_ be CreateBuiltinFunction(_fulfilledClosure_, 0, *""*, &laquo; &raquo;).
+            1. Let _rejectedClosure_ be a new Abstract Closure with parameters (_error_) that captures _referrer_, _specifier_, and _payload_, and performs the following steps when called:
+              1. Perform FinishLoadingImportedModule(_referrer_, _specifier_, _payload_, ThrowCompletion(_error_)).
+              1. Return ~unused~.
+            1. Let _onRejected_ be CreateBuiltinFunction(_rejectedClosure_, 1, *""*, &laquo; &raquo;).
+            1. Perform PerformPromiseThen(_importHookPromise_.[[Value]], _onFulfilled_, _onRejected_).
+            1. Return ~unused~.
+          </emu-alg>
         </emu-clause>
-
-        <emu-clause id="sec-hostimportmodulerecorddynamically" type="host-defined abstract operation">
-            <h1>
-              HostImportModuleRecordDynamically (
-                _moduleRecord_: a Module Record,
-                _specifier_: a |ModuleSpecifier| String,
-                _promiseCapability_: a PromiseCapability Record,
-              ): ~unused~
-            </h1>
-            <dl class="header">
-              <dt>description</dt>
-              <dd>It performs any necessary setup work in order to make available the module corresponding to module represented by _moduleRecord_. It then performs FinishModuleDynamicImport to finish the dynamic import process.</dd>
-            </dl>
-            <p>An implementation of HostImportModuleRecordDynamically must conform to the following requirements:</p>
-
-            <ul>
-              <li>
-                It must call ResolveModuleRecordDependency for every (_moduleRecord_, _specifierString_) pair, where _specifierString_ are the entries of _moduleRecord_.[[RequestedModules]] for each recursively resolved Cyclic Module Record _moduleRecord_. ResolveModuleRecordDependency must not be called twice with the same (_moduleRecord_, _specifierString_) pair: instead, the result of the first call should be cached and reused as the result of successive resolutions.
-              </li>
-              <li>
-                It must return ~unused~. Success or failure must instead be signaled as discussed below.
-              </li>
-              <li>
-                The host environment must conform to one of the two following sets of requirements:
-                <dl>
-                  <dt>Success path</dt>
-
-                  <dd>
-                    <ul>
-                      <li>At some future time, the host environment must perform FinishModuleDynamicImport(_moduleRecord_, _promiseCapability_, _promise_), where _promise_ is a Promise resolved with *undefined*.</li>
-                    </ul>
-                  </dd>
-
-                  <dt>Failure path</dt>
-
-                  <dd>
-                    <ul>
-                      <li>At some future time, the host environment must perform FinishModuleDynamicImport(_moduleRecord_, _promiseCapability_, _promise_), where _promise_ is a Promise rejected with an error representing the cause of failure.</li>
-                    </ul>
-                  </dd>
-                </dl>
-              </li>
-              <li>
-                If the host environment takes the success path once for a given _moduleRecord_, it must always do so for subsequent calls.
-              </li>
-              <li>
-                The operation must not call _promiseCapability_.[[Resolve]] or _promiseCapability_.[[Reject]], but instead must treat _promiseCapability_ as an opaque identifying value to be passed through to FinishModuleDynamicImport.
-              </li>
-            </ul>
-            <emu-note type="editor">
-                This host operation is hand-waving, similar to FinishDynamicImport. This will be addressed on a separate refactor that is orthogonal to this proposal.
-            </emu-note>
-          </emu-clause>
-
-          <emu-clause id="sec-finishmoduledynamicimport" type="abstract operation">
-            <h1>
-              FinishModuleDynamicImport (
-                _moduleRecord_: a Module Record,
-                _promiseCapability_: a PromiseCapability Record,
-                _innerPromise_: unknown,
-              ): ~unused~
-            </h1>
-            <dl class="header">
-              <dt>description</dt>
-              <dd>FinishModuleDynamicImport completes the process of a dynamic import originally started by an <emu-xref href="#sec-import-calls">`import()`</emu-xref> call for a Module Instance, resolving or rejecting the promise returned by that call as appropriate according to _innerPromise_'s resolution. It is performed by host environments as part of HostImportModuleRecordDynamically.</dd>
-            </dl>
-            <emu-alg>
-              1. Let _fulfilledClosure_ be a new Abstract Closure with parameters (_result_) that captures _moduleRecord_ and _promiseCapability_ and performs the following steps when called:
-                1. Assert: _result_ is *undefined*.
-                1. Assert: Evaluate has already been invoked on _moduleRecord_ and successfully completed.
-                1. Let _namespace_ be Completion(GetModuleNamespace(_moduleRecord_)).
-                1. If _namespace_ is an abrupt completion, then
-                  1. Perform ! Call(_promiseCapability_.[[Reject]], *undefined*, &laquo; _namespace_.[[Value]] &raquo;).
-                1. Else,
-                  1. Perform ! Call(_promiseCapability_.[[Resolve]], *undefined*, &laquo; _namespace_.[[Value]] &raquo;).
-                1. Return ~unused~.
-              1. Let _onFulfilled_ be CreateBuiltinFunction(_fulfilledClosure_, 0, *""*, &laquo; &raquo;).
-              1. Let _rejectedClosure_ be a new Abstract Closure with parameters (_error_) that captures _promiseCapability_ and performs the following steps when called:
-                1. Perform ! Call(_promiseCapability_.[[Reject]], *undefined*, &laquo; _error_ &raquo;).
-                1. Return ~unused~.
-              1. Let _onRejected_ be CreateBuiltinFunction(_rejectedClosure_, 0, *""*, &laquo; &raquo;).
-              1. Perform PerformPromiseThen(_innerPromise_, _onFulfilled_, _onRejected_).
-              1. Return ~unused~.
-            </emu-alg>
-
-            <emu-note type="editor">
-                This Abstract Operation is analogous to FinishDynamicImport but for Module Records with an associated Module Instance.
-            </emu-note>
-          </emu-clause>
     </emu-clause>
 
     <emu-clause id="sec-module-constructor">
