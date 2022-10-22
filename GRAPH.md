@@ -185,7 +185,7 @@ Consider some possible non-JavaScript asset modules:
   such that a bundler can relocate resources between development and
   production.
 
-## Web Assembly not-host-defined modules
+## WebAssembly not-host-defined modules
 
 Not all hosts necessarily implement the web's specifications for allowing
 Web Assembly to participate in the JavaScript module graph.
