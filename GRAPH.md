@@ -188,7 +188,7 @@ Consider some possible non-JavaScript asset modules:
 ## WebAssembly not-host-defined modules
 
 Not all hosts necessarily implement the web's specifications for allowing
-Web Assembly to participate in the JavaScript module graph.
+WebAssembly to participate in the JavaScript module graph.
 As above, ***a minimal virtual module source protocol*** would allow
 user code to emulate the standard behavior for Web Assembly.
 
