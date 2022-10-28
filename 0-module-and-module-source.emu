@@ -42,98 +42,344 @@ location: https://tc39.es/proposal-compartments/
     </emu-table>
 </emu-clause>
 
+<emu-clause id="sec-ecmascript-language-scripts-and-modules" nuber="16">
+  <h1>ECMAScript Language: Scripts and Modules</h1>
 
-<emu-clause id="sec-cyclic-module-records">
-  <h1>Cyclic Module Records</h1>
+  <emu-clause id="sec-modules" number="2.1">
+    <h1>Module Semantics</h1>
 
-  <emu-clause id="sec-LoadRequestedModules" type="concrete method">
-    <h1>
-      LoadRequestedModules (
-        optional _hostDefined_: anything,
-      ): a Promise object
-    </h1>
-    <dl class="header">
-      <dt>for</dt>
-      <dd>a Cyclic Module Record _module_</dd>
-    </dl>
+    <emu-clause id="sec-cyclic-module-records" number="5">
+      <h1>Cyclic Module Records</h1>
 
-    <emu-clause id="sec-InnerModuleLoading" type="abstract operation">
+      <p>In addition to the fields defined in <emu-xref href="#table-module-record-fields"></emu-xref> Cyclic Module Records have the additional fields listed in <emu-xref href="#table-cyclic-module-fields"></emu-xref></p>
+      <emu-table id="table-cyclic-module-fields" caption="Additional Fields of Cyclic Module Records">
+        <table>
+          <tr>
+            <th>
+              Field Name
+            </th>
+            <th>
+              Value Type
+            </th>
+            <th>
+              Meaning
+            </th>
+          </tr>
+          <tr>
+            <td>
+              [[Status]]
+            </td>
+            <td></td>
+            <td></td>
+          </tr>
+          <tr>
+            <td>
+              [[EvaluationError]]
+            </td>
+            <td></td>
+            <td></td>
+          </tr>
+          <tr>
+            <td>
+              [[DFSIndex]]
+            </td>
+            <td></td>
+            <td></td>
+          </tr>
+          <tr>
+            <td>
+              [[DFSAncestorIndex]]
+            </td>
+            <td></td>
+            <td></td>
+          </tr>
+          <tr>
+            <td>
+              [[RequestedModules]]
+            </td>
+            <td></td>
+            <td></td>
+          </tr>
+          <tr>
+            <td>
+              [[LoadedModules]]
+            </td>
+            <td>
+              a List of Records with fields [[Specifier]] (a String) and [[Module]] (a Module Record)
+            </td>
+            <td>
+              A map from the specifier strings used by the module represented by this record to request the importation of a module to the resolved Module Record. The list does not contain two different Records with the same [[Specifier]].
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <ins>[[LoadingModules]]</ins>
+            </td>
+            <td>
+              <ins>a List of Records with fields [[Specifier]] (a String) and [[LoadStates]] (a List of either GraphLoadingState Records or PromiseCapability Records)</ins>
+            </td>
+            <td>
+             <ins> A map from the specifier strings imported by this module to the states of the loading processes that are waiting for the resolved module record. It is used to avoid multiple calls to the loading hook with the same (_specifier_, _referrer_) pair. The list does not contain two different Records with the same [[Specifier]].</ins>
+
+             <emu-note type="editor">
+              This field must also be added to Script Records and Realm Records, in parallel to the existing [[LoadedModules]] fields.
+             </emu-note>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              [[CycleRoot]]
+            </td>
+            <td></td>
+            <td></td>
+          </tr>
+          <tr>
+            <td>
+              [[HasTLA]]
+            </td>
+            <td></td>
+            <td></td>
+          </tr>
+          <tr>
+            <td>
+              [[AsyncEvaluation]]
+            </td>
+            <td></td>
+            <td></td>
+          </tr>
+          <tr>
+            <td>
+              [[TopLevelCapability]]
+            </td>
+            <td></td>
+            <td></td>
+          </tr>
+          <tr>
+            <td>
+              [[AsyncParentModules]]
+            </td>
+            <td></td>
+            <td></td>
+          </tr>
+          <tr>
+            <td>
+              [[PendingAsyncDependencies]]
+            </td>
+            <td></td>
+            <td></td>
+          </tr>
+        </table>
+      </emu-table>
+
+      <emu-clause id="sec-LoadRequestedModules" type="concrete method">
+        <h1>
+          LoadRequestedModules (
+            optional _hostDefined_: anything,
+          ): a Promise object
+        </h1>
+        <dl class="header">
+          <dt>for</dt>
+          <dd>a Cyclic Module Record _module_</dd>
+        </dl>
+
+        <emu-clause id="sec-InnerModuleLoading" type="abstract operation">
+          <h1>
+            InnerModuleLoading (
+              _state_: a GraphLoadingState Record,
+              _module_: a Module Record,
+            ): ~unused~
+          </h1>
+          <dl class="header">
+            <dt>description</dt>
+            <dd>It is used by LoadRequestedModules to recursively perform the actual loading process for _module_'s dependency graph.</dd>
+          </dl>
+
+          <emu-alg>
+            1. Assert: _state_.[[IsLoading]] is *true*.
+            1. If _module_ is a Cyclic Module Record, _module_.[[Status]] is ~new~, and _state_.[[Visited]] does not contain _module_, then
+              1. Append _module_ to _state_.[[Visited]].
+              1. Let _requestedModulesCount_ be the length of _module_.[[RequestedModules]].
+              1. Set _state_.[[PendingModulesCount]] to _state_.[[PendingModulesCount]] + _requestedModulesCount_.
+              1. For each String _required_ of _module_.[[RequestedModules]], do
+                1. If _module_.[[LoadedModules]] contains a Record _record_ whose [[Specifier]] is _required_, then
+                  1. Perform InnerModuleLoading(_state_, _record_.[[Module]]).
+                1. Else,
+                  1. Perform <del>HostLoadImportedModule</del><ins>LoadImportedModule</ins>(_module_, _required_, _state_.[[HostDefined]], _state_).
+                  1. NOTE: <del>HostLoadImportedModule</del><ins>LoadImportedModule</ins> will call FinishLoadingImportedModule, which re-enters the graph loading process through ContinueModuleLoading.
+                1. If _state_.[[IsLoading]] is *false*, return ~unused~.
+            1. Assert: _state_.[[PendingModulesCount]] &ge; 1.
+            1. Set _state_.[[PendingModulesCount]] to _state_.[[PendingModulesCount]] - 1.
+            1. If _state_.[[PendingModulesCount]] = 0, then
+              1. Set _state_.[[IsLoading]] to *false*.
+              1. For each Cyclic Module Record _loaded_ in _state_.[[Visited]], do
+                1. If _loaded_.[[Status]] is ~new~, set _loaded_.[[Status]] to ~unlinked~.
+              1. Perform ! Call(_state_.[[PromiseCapability]].[[Resolve]], *undefined*, &laquo; *undefined* &raquo;).
+            1. Return ~unused~.
+          </emu-alg>
+        </emu-clause>
+      </emu-clause>
+    </emu-clause>
+
+    <emu-clause id="sec-source-text-module-records" number="6">
+      <h1>Source Text Module Records</h1>
+
+      <p>In addition to the fields defined in <emu-xref href="#table-cyclic-module-fields"></emu-xref>, Source Text Module Records have the additional fields listed in <emu-xref href="#table-additional-fields-of-source-text-module-records"></emu-xref>. Each of these fields is initially set in ParseModule.</p>
+      <emu-table id="table-additional-fields-of-source-text-module-records" caption="Additional Fields of Source Text Module Records" oldids="table-38">
+        <table>
+          <tr>
+            <th>
+              Field Name
+            </th>
+            <th>
+              Value Type
+            </th>
+            <th>
+              Meaning
+            </th>
+          </tr>
+          <tr>
+            <td>
+              ...
+            </td>
+            <td>
+            </td>
+            <td>
+            </td>
+          </tr>
+          <tr>
+            <td>
+              <ins>[[ModuleInstance]]</ins>
+            </td>
+            <td>
+              An instance of a %Module% constructor or *undefined*.
+            </td>
+            <td>
+              A Module Instance or *undefined* if no Module Instance is associated to this Record.
+            </td>
+          </tr>
+        </table>
+      </emu-table>
+    </emu-clause>
+
+    <emu-clause id="sec-LoadImportedModule" type="abstract operation">
       <h1>
-        InnerModuleLoading (
-          _state_: a GraphLoadingState Record,
-          _module_: a Module Record,
+        <ins>
+          LoadImportedModule(
+            _referrer_: a Script Record, a Cyclic Module Record, or a Realm Record,
+            _specifier_: a String,
+            _hostDefined_: anything,
+            _state_: a GraphLoadingState Record or a PromiseCapability Record,
+          ): ~unused~
+        </ins>
+      </h1>
+      <dl class="header"></dl>
+
+      <emu-alg>
+        1. If _referrer_.[[LoadedModules]] contains a Record _loaded_ whose [[Specifier]] is _specifier_, then
+          1. Let _module_ be _loaded_.[[Module]].
+          1. Perform FinishLoadingImportedModule(_referrer_, _specifier_, NormalCompletion(_module_)).
+          1. Return ~unused~.
+        1. If _referrer_.[[LoadingModules]] contains a Record _loading_ whose [[Specifier]] is _specifier_, then
+          1. Add _state_ to _loading_.[[LoadStates]].
+          1. Return ~unused~.
+        1. Append the Record { [[Specifier]]: _specifier_, [[LoadStates]]: &laquo; _state_ &raquo; } to _referrer_.[[LoadingModules]].
+        1. If _referrer_ is not a Source Text Module Record, _referrer_.[[ModuleInstance]] is *undefined*, or _referrer_.[[ModuleInstance]].[[ImportHook]] is *undefined*, then
+          1. Perform HostLoadImportedModule(_referrer_, _specifier_, _hostDefined_).
+          1. Return ~unused~.
+        1. Let _importHookResult_ be Completion(Call(_referrer_.[[ModuleInstance]].[[ImportHook]], _referrer_.[[ModuleInstance]].[[HandlerValue]], « _specifier_ »).
+        1. If _importHookResult_ is an abrupt completion, then
+          1. Perform FinishLoadingImportedModule(_referrer_, _specifier_, _importHookResult_).
+          1. Return ~unused~.
+        1. Let _importHookPromise_ be Completion(PromiseResolve(%Promise%, _importHookResult_.[[Value]])).
+        1. If _importHookPromise_ is an abrupt completion, then
+          1. Perform FinishLoadingImportedModule(_referrer_, _specifier_, _importHookPromise_).
+          1. Return ~unused~.
+        1. Let _fulfilledClosure_ be a new Abstract Closure with parameters (_result_) that captures _referrer_, _specifier_, and _payload_, and performs the following steps when called:
+          1. Let _completion_ be *null*.
+          1. If Type(_result_) is Object and _result_ has a [[ImportHook]] internal slot, then
+            1. Set _completion_ to NormalCompletion(_result_.[[Module]]).
+          1. Else,
+            1. Set _completion_ to ThrowCompletion(a newly created *TypeError* object).
+          1. Perform FinishLoadingImportedModule(_referrer_, _specifier_, _completion_).
+          1. Return ~unused~.
+        1. Let _onFulfilled_ be CreateBuiltinFunction(_fulfilledClosure_, 0, *""*, &laquo; &raquo;).
+        1. Let _rejectedClosure_ be a new Abstract Closure with parameters (_error_) that captures _referrer_, _specifier_, and _payload_, and performs the following steps when called:
+          1. Perform FinishLoadingImportedModule(_referrer_, _specifier_, ThrowCompletion(_error_)).
+          1. Return ~unused~.
+        1. Let _onRejected_ be CreateBuiltinFunction(_rejectedClosure_, 1, *""*, &laquo; &raquo;).
+        1. Perform PerformPromiseThen(_importHookPromise_.[[Value]], _onFulfilled_, _onRejected_).
+        1. Return ~unused~.
+      </emu-alg>
+    </emu-clause>
+
+    <emu-clause id="sec-HostLoadImportedModule" type="host-defined abstract operation">
+      <h1>
+        HostLoadImportedModule (
+          _referrer_: a Script Record, a Cyclic Module Record, or a Realm Record,
+          _specifier_: a String,
+          _hostDefined_: anything,
+          <del>_payload_: a GraphLoadingState Record or a PromiseCapability Record,</del>
         ): ~unused~
       </h1>
       <dl class="header">
         <dt>description</dt>
-        <dd>It is used by LoadRequestedModules to recursively perform the actual loading process for _module_'s dependency graph.</dd>
+        <dd></dd>
       </dl>
 
+      <emu-note>
+        <p>An example of when _referrer_ can be a Realm Record is in a web browser host. There, if a user clicks on a control given by</p>
+
+        <pre><code class="html">&lt;button type="button" onclick="import('./foo.mjs')"&gt;Click me&lt;/button&gt;</code></pre>
+
+        <p>there will be no active script or module at the time the <emu-xref href="#sec-import-calls">`import()`</emu-xref> expression runs. More generally, this can happen in any situation where the host pushes execution contexts with *null* ScriptOrModule components onto the execution context stack.</p>
+      </emu-note>
+
+      <p>An implementation of HostLoadImportedModule must conform to the following requirements:</p>
+      <ul>
+        <li>
+          The host environment must perform FinishLoadingImportedModule(_referrer_, _specifier_, <del>_payload_,</del> _result_), where _result_ is either a normal completion containing the loaded Module Record or a throw completion, either synchronously or asynchronously.
+        </li>
+        <li>
+          If this operation is called multiple times with the same (_referrer_, _specifier_) pair and it performs FinishLoadingImportedModule(_referrer_, _specifier_, <del>_payload_,</del> _result_) where _result_ is a normal completion, then it must perform FinishLoadingImportedModule(_referrer_, _specifier_, <del>_payload_,</del> _result_) with the same _result_ each time.
+        </li>
+        <li>
+          <del>The operation must treat _payload_ as an opaque value to be passed through to FinishLoadingImportedModule.</del>
+        </li>
+      </ul>
+
+      <p>The actual process performed is host-defined, but typically consists of performing whatever I/O operations are necessary to load the appropriate Module Record. Multiple different (_referrer_, _specifier_) pairs may map to the same Module Record instance. The actual mapping semantics is host-defined but typically a normalization process is applied to _specifier_ as part of the mapping process. A typical normalization process would include actions such as expansion of relative and abbreviated path specifiers.</p>
+    </emu-clause>
+
+    <emu-clause id="sec-FinishLoadingImportedModule" type="abstract operation">
+      <h1>
+        FinishLoadingImportedModule (
+          _referrer_: a Script Record, a Cyclic Module Record, or a Realm Record,
+          _specifier_: a String,
+          <del>_payload_: a GraphLoadingState Record or a PromiseCapability Record,</del>
+          _result_: either a normal completion containing a Module Record or a throw completion,
+        ): ~unused~
+      </h1>
+      <dl class="header">
+        <dt>description</dt>
+        <dd></dd>
+      </dl>
       <emu-alg>
-        1. Assert: _state_.[[IsLoading]] is *true*.
-        1. If _module_ is a Cyclic Module Record, _module_.[[Status]] is ~new~, and _state_.[[Visited]] does not contain _module_, then
-          1. Append _module_ to _state_.[[Visited]].
-          1. Let _requestedModulesCount_ be the length of _module_.[[RequestedModules]].
-          1. Set _state_.[[PendingModulesCount]] to _state_.[[PendingModulesCount]] + _requestedModulesCount_.
-          1. For each String _required_ of _module_.[[RequestedModules]], do
-            1. If _module_.[[LoadedModules]] contains a Record _record_ whose [[Specifier]] is _required_, then
-              1. Perform InnerModuleLoading(_state_, _record_.[[Module]]).
-            1. Else,
-              1. Perform <del>HostLoadImportedModule</del><ins>LoadImportedModule</ins>(_module_, _required_, _state_.[[HostDefined]], _state_).
-              1. NOTE: <del>HostLoadImportedModule</del><ins>LoadImportedModule</ins> will call FinishLoadingImportedModule, which re-enters the graph loading process through ContinueModuleLoading.
-            1. If _state_.[[IsLoading]] is *false*, return ~unused~.
-        1. Assert: _state_.[[PendingModulesCount]] &ge; 1.
-        1. Set _state_.[[PendingModulesCount]] to _state_.[[PendingModulesCount]] - 1.
-        1. If _state_.[[PendingModulesCount]] = 0, then
-          1. Set _state_.[[IsLoading]] to *false*.
-          1. For each Cyclic Module Record _loaded_ in _state_.[[Visited]], do
-            1. If _loaded_.[[Status]] is ~new~, set _loaded_.[[Status]] to ~unlinked~.
-          1. Perform ! Call(_state_.[[PromiseCapability]].[[Resolve]], *undefined*, &laquo; *undefined* &raquo;).
+        1. If _result_ is a normal completion, then
+          1. If _referrer_.[[LoadedModules]] contains a Record _record_ whose [[Specifier]] is _specifier_, then
+            1. Assert: _record_.[[Module]] is _result_.[[Value]].
+          1. Else, append the Record { [[Specifier]]: _specifier_, [[Module]]: _result_.[[Value]] } to _referrer_.[[LoadedModules]].
+        1. <ins>Let _loading_ be the Record in _referrer_.[[LoadingModules]] whose [[Specifier]] is _specifier_.</ins>
+        1. <ins>Assert: _loading_ exists and is unique.</ins>
+        1. <ins>Remove _loading_ from _referrer_.[[LoadingModules]].</ins>
+        1. <ins>For each Record _state_ in _loading_.[[LoadStates]], do</ins>
+          1. If <del>_payload_</del><ins>_state_</ins> is a GraphLoadingState Record, then
+            1. Perform ContinueModuleLoading(<del>_payload_</del><ins>_state_</ins>, _result_).
+          1. Else,
+            1. Perform ContinueDynamicImport(<del>_payload_</del><ins>_state_</ins>, _result_).
         1. Return ~unused~.
       </emu-alg>
     </emu-clause>
   </emu-clause>
-</emu-clause>
-
-<emu-clause id="sec-source-text-module-records">
-    <h1>Source Text Module Records</h1>
-
-    <p>In addition to the fields defined in <emu-xref href="#table-cyclic-module-fields"></emu-xref>, Source Text Module Records have the additional fields listed in <emu-xref href="#table-additional-fields-of-source-text-module-records"></emu-xref>. Each of these fields is initially set in ParseModule.</p>
-    <emu-table id="table-additional-fields-of-source-text-module-records" caption="Additional Fields of Source Text Module Records" oldids="table-38">
-      <table>
-        <tr>
-          <th>
-            Field Name
-          </th>
-          <th>
-            Value Type
-          </th>
-          <th>
-            Meaning
-          </th>
-        </tr>
-        <tr>
-          <td>
-            ...
-          </td>
-          <td>
-          </td>
-          <td>
-          </td>
-        </tr>
-        <tr>
-          <td>
-            <ins>[[ModuleInstance]]</ins>
-          </td>
-          <td>
-            An instance of a %Module% constructor or *undefined*.
-          </td>
-          <td>
-            A Module Instance or *undefined* if no Module Instance is associated to this Record.
-          </td>
-        </tr>
-      </table>
-    </emu-table>
 </emu-clause>
 
 <emu-clause id="sec-meta-properties">
@@ -300,11 +546,7 @@ location: https://tc39.es/proposal-compartments/
         1. <ins>Else,</ins>
           1. Let _specifierString_ be Completion(ToString(<del>_specifier_</del><ins>_specifierOrModule_</ins>)).
           1. IfAbruptRejectPromise(_specifierString_, _promiseCapability_).
-          1. <ins>If _referrer_ is a Source Text Module Record, _referrer_.[[ModuleInstance]] is not *undefined*, _referrer_.[[ModuleInstance]].[[ImportHook]] is not *undefined*, and _referrer_.[[LoadedModules]] contains a Record _record_ whose [[Specifier]] is _specifierString_, then</ins>
-            1. <ins>NOTE: Checking _referrer_.[[ModuleInstance]].[[ImportHook]] is necessary because calls to HostLoadImportedModule coming from `import()` expressions should not be cached, to preserve the current behavior of some hosts.</ins>
-            1. <ins>Perform ContinueDynamicImport(_promiseCapability_, _record_.[[Module]]).</ins>
-          1. <ins>Else,</ins>
-            1. Perform <del>HostLoadImportedModule</del><ins>LoadImportedModule</ins>(_referrer_, _specifierString_, ~empty~, _promiseCapability_).
+          1. Perform <del>HostLoadImportedModule</del><ins>LoadImportedModule</ins>(_referrer_, _specifierString_, ~empty~, _promiseCapability_).
         1. Return _promiseCapability_.[[Promise]].
       </emu-alg>
     </emu-clause>
@@ -474,50 +716,6 @@ location: https://tc39.es/proposal-compartments/
               1. Let _realm_ be the current Realm Record.
               1. Return Source Text Module Record { [[Realm]]: _realm_, [[Environment]]: ~empty~, [[Namespace]]: ~empty~, [[CycleRoot]]: ~empty~, [[HasTLA]]: _async_, [[AsyncEvaluation]]: *false*, [[TopLevelCapability]]: ~empty~, [[AsyncParentModules]]: &laquo; &raquo;, [[PendingAsyncDependencies]]: ~empty~, [[Status]]: ~unlinked~, [[EvaluationError]]: ~empty~, [[HostDefined]]: _hostDefined_, [[ECMAScriptCode]]: _body_, [[Context]]: ~empty~, [[ImportMeta]]: ~empty~, [[RequestedModules]]: _requestedModules_, [[ImportEntries]]: _importEntries_, [[LocalExportEntries]]: _localExportEntries_, [[IndirectExportEntries]]: _indirectExportEntries_, [[StarExportEntries]]: _starExportEntries_, [[DFSIndex]]: ~empty~, [[DFSAncestorIndex]]: ~empty~, [[ModuleInstance]]: *undefined* }.
             </emu-alg>
-        </emu-clause>
-
-
-        <emu-clause id="sec-LoadImportedModule" type="abstract operation">
-          <h1>
-            <ins>
-              LoadImportedModule(
-                _referrer_: a Cyclic Module Record,
-                _specifier_: a String,
-                _hostDefined_: anything,
-                _payload_: a GraphLoadingState Record or a PromiseCapability Record,
-              ): ~unused~
-            </ins>
-          </h1>
-          <dl class="header"></dl>
-
-          <emu-alg>
-            1. If _referrer_ is not a Source Text Module Record, _referrer_.[[ModuleInstance]] is *undefined*, or _referrer_.[[ModuleInstance]].[[ImportHook]] is *undefined*, then
-              1. Perform HostLoadImportedModule(_referrer_, _specifier_, _hostDefined_, _payload_).
-              1. Return ~unused~.
-            1. Let _importHookResult_ be Completion(Call(_referrer_.[[ModuleInstance]].[[ImportHook]], _referrer_.[[ModuleInstance]].[[HandlerValue]], « _specifier_ »).
-            1. If _importHookResult_ is an abrupt completion, then
-              1. Perform FinishLoadingImportedModule(_referrer_, _specifier_, _payload_, _completion_).
-              1. Return ~unused~.
-            1. Let _importHookPromise_ be Completion(PromiseResolve(%Promise%, _importHookResult_.[[Value]])).
-            1. If _importHookPromise_ is an abrupt completion, then
-              1. Perform FinishLoadingImportedModule(_referrer_, _specifier_, _payload_, _completion_).
-              1. Return ~unused~.
-            1. Let _fulfilledClosure_ be a new Abstract Closure with parameters (_result_) that captures _referrer_, _specifier_, and _payload_, and performs the following steps when called:
-              1. Let _completion_ be *null*.
-              1. If Type(_result_) is Object and _result_ has a [[ImportHook]] internal slot, then
-                1. Set _completion_ to NormalCompletion(_result_.[[Module]]).
-              1. Else,
-                1. Set _completion_ to ThrowCompletion(a newly created *TypeError* object).
-              1. Perform FinishLoadingImportedModule(_referrer_, _specifier_, _payload_, _completion_).
-              1. Return ~unused~.
-            1. Let _onFulfilled_ be CreateBuiltinFunction(_fulfilledClosure_, 0, *""*, &laquo; &raquo;).
-            1. Let _rejectedClosure_ be a new Abstract Closure with parameters (_error_) that captures _referrer_, _specifier_, and _payload_, and performs the following steps when called:
-              1. Perform FinishLoadingImportedModule(_referrer_, _specifier_, _payload_, ThrowCompletion(_error_)).
-              1. Return ~unused~.
-            1. Let _onRejected_ be CreateBuiltinFunction(_rejectedClosure_, 1, *""*, &laquo; &raquo;).
-            1. Perform PerformPromiseThen(_importHookPromise_.[[Value]], _onFulfilled_, _onRejected_).
-            1. Return ~unused~.
-          </emu-alg>
         </emu-clause>
     </emu-clause>
 
