@@ -294,7 +294,7 @@ location: https://tc39.es/proposal-compartments/
         1. If _importHookPromise_ is an abrupt completion, then
           1. Perform FinishLoadingImportedModule(_referrer_, _specifier_, _importHookPromise_).
           1. Return ~unused~.
-        1. Let _fulfilledClosure_ be a new Abstract Closure with parameters (_result_) that captures _referrer_, _specifier_, and _payload_, and performs the following steps when called:
+        1. Let _fulfilledClosure_ be a new Abstract Closure with parameters (_result_) that captures _referrer_ and _specifier_, and performs the following steps when called:
           1. Let _completion_ be *null*.
           1. If Type(_result_) is Object and _result_ has a [[ImportHook]] internal slot, then
             1. Set _completion_ to NormalCompletion(_result_.[[Module]]).
@@ -303,7 +303,7 @@ location: https://tc39.es/proposal-compartments/
           1. Perform FinishLoadingImportedModule(_referrer_, _specifier_, _completion_).
           1. Return ~unused~.
         1. Let _onFulfilled_ be CreateBuiltinFunction(_fulfilledClosure_, 0, *""*, &laquo; &raquo;).
-        1. Let _rejectedClosure_ be a new Abstract Closure with parameters (_error_) that captures _referrer_, _specifier_, and _payload_, and performs the following steps when called:
+        1. Let _rejectedClosure_ be a new Abstract Closure with parameters (_error_) that captures _referrer_ and _specifier_, and performs the following steps when called:
           1. Perform FinishLoadingImportedModule(_referrer_, _specifier_, ThrowCompletion(_error_)).
           1. Return ~unused~.
         1. Let _onRejected_ be CreateBuiltinFunction(_rejectedClosure_, 1, *""*, &laquo; &raquo;).
