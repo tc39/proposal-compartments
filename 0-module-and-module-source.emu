@@ -42,7 +42,7 @@ location: https://tc39.es/proposal-compartments/
     </emu-table>
 </emu-clause>
 
-<emu-clause id="sec-ecmascript-language-scripts-and-modules" nuber="16">
+<emu-clause id="sec-ecmascript-language-scripts-and-modules" number="16">
   <h1>ECMAScript Language: Scripts and Modules</h1>
 
   <emu-clause id="sec-modules" number="2.1">
