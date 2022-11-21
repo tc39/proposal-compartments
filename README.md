@@ -52,7 +52,7 @@ With that, the Compartments proposal consists of five layers:
 
 - [Module and ModuleSource][0]: Provide first-class `Module` and
   `ModuleSource` constructors and extend dynamic import to operate on `Module`
-  instances.
+  instances. ([Specification Changes][0-spec])
 
 - [Surface Module Source Static Analysis][1]: Extend instances of
   `ModuleSource` such that they reflect certain results of static analysis,
@@ -80,6 +80,7 @@ the motivation for each feature from the layers of this Compartments proposal
 and related module proposals.
 
 [0]: ./0-module-and-module-source.md
+[0-spec]: https://tc39.es/proposal-compartments/0-module-and-module-source.html
 [1]: ./1-static-analysis.md
 [2]: ./2-virtual-module-source.md
 [3]: ./3-evaluator.md

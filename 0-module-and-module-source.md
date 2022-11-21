@@ -1,5 +1,7 @@
 # First-class Module and ModuleSource
 
+[Specification Changes][0-spec]
+
 ## Synopsis
 
 Provide first-class `Module` and `ModuleSource` constructors and extend dynamic
@@ -545,3 +547,4 @@ which are answerable but have not yet been fully discussed.
 
 [module-blocks]: https://github.com/tc39/proposal-js-module-blocks
 [trusted-types]: https://w3c.github.io/webappsec-trusted-types/dist/spec/
+[0-spec]: https://tc39.es/proposal-compartments/0-module-and-module-source.html
