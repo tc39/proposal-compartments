@@ -4,7 +4,7 @@
   "description": "A repository template for ECMAScript proposals.",
   "scripts": {
     "build": "ecmarkup spec.emu index.html",
-    "build-0": "ecmarkup --verbose 0-module-and-module-source.emu 0-module-and-module-source.html --load-biblio ./ecma262-biblio.json"
+    "build-0": "ecmarkup --verbose 0-module-and-module-source.emu 0-module-and-module-source.html --load-biblio @tc39/ecma262-biblio"
   },
   "homepage": "https://github.com/tc39/template-for-proposals#readme",
   "repository": {
@@ -13,7 +13,7 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "@tc39/ecma262-biblio": "^2.1.2338",
+    "@tc39/ecma262-biblio": "2.1.2485",
     "ecmarkup": "^14.0.0"
   }
 }
